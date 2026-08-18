@@ -150,11 +150,13 @@ const { useState, useEffect, useCallback } = React;
 // ==========================================================
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlsnm5QbYBrXDmiMu-Quc7iCqoHOHaPV3ldlQgWgwfKlrP0vLDq4a113pIpxUgcD4ArA/exec";
 
+let CURRENT_PIN = "";
+
 async function callApi(action, payload = {}) {
   const res = await fetch(APPS_SCRIPT_URL, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action, payload }),
+    body: JSON.stringify({ action, payload, pin: CURRENT_PIN }),
   });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || "Error desconocido");
@@ -214,6 +216,40 @@ function useNotice() {
 function Notice({ notice }) {
   if (!notice) return null;
   return <div className={"notice " + (notice.type === "ok" ? "ok" : "err")}>{notice.text}</div>;
+}
+
+// ---------------- ACCESO (PIN) ----------------
+function LockScreen({ onUnlock }) {
+  const [pin, setPin] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState("");
+
+  function submit(e) {
+    e.preventDefault();
+    setError("");
+    setChecking(true);
+    CURRENT_PIN = pin;
+    callApi("getTarjetas", {})
+      .then(() => onUnlock())
+      .catch(() => { setError("Código incorrecto."); CURRENT_PIN = ""; })
+      .finally(() => setChecking(false));
+  }
+
+  return (
+    <div className="app" style={{ paddingTop: 70 }}>
+      <div className="card" style={{ maxWidth: 300, margin: "0 auto" }}>
+        <h3 style={{ textAlign: "center", fontSize: 18 }}>Finanzas SM</h3>
+        <form onSubmit={submit}>
+          <div className="field">
+            <label>Código de acceso</label>
+            <input type="password" autoFocus value={pin} onChange={(e) => setPin(e.target.value)} />
+          </div>
+          {error && <div className="notice err">{error}</div>}
+          <button className="btn" disabled={checking || !pin}>{checking ? "Verificando..." : "Entrar"}</button>
+        </form>
+      </div>
+    </div>
+  );
 }
 
 // ---------------- HEADER ----------------
@@ -828,7 +864,13 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+function Root() {
+  const [unlocked, setUnlocked] = useState(false);
+  if (!unlocked) return <LockScreen onUnlock={() => setUnlocked(true)} />;
+  return <App />;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Root />);
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
