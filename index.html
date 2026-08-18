@@ -410,7 +410,8 @@ function CargarTab({ ambito }) {
   const [editingId, setEditingId] = useState(null);
   const [categorias, setCategorias] = useState([]);
   const [medios, setMedios] = useState(["Efectivo", "Transferencia", "Débito"]);
-  const [recientes, setRecientes] = useState([]);
+  const [todasTx, setTodasTx] = useState([]);
+  const [filtro, setFiltro] = useState("todos");
   const [saving, setSaving] = useState(false);
   const [notice, notify] = useNotice();
 
@@ -418,13 +419,15 @@ function CargarTab({ ambito }) {
     callApi("getCategorias", { ambito }).then(setCategorias).catch(() => {});
     callApi("getTarjetas", {}).then((tj) => setMedios(["Efectivo", "Transferencia", "Débito", ...tj.map((t) => t["Nombre"])])).catch(() => {});
     callApi("getTransacciones", { ambito }).then((rows) => {
-      const ordenado = [...rows].sort((a, b) => new Date(b["Fecha"]) - new Date(a["Fecha"]));
-      setRecientes(ordenado.slice(0, 10));
+      setTodasTx([...rows].sort((a, b) => new Date(b["Fecha"]) - new Date(a["Fecha"])));
     }).catch(() => {});
   }, [ambito]);
 
   useEffect(() => { loadAux(); }, [loadAux]);
   useEffect(() => { setEditingId(null); setForm(BLANK_TX); }, [ambito]);
+
+  const recientes = (filtro === "todos" ? todasTx : todasTx.filter((r) => r["Estado"] === (filtro === "pendientes" ? "Pendiente" : "Pagado")))
+    .slice(0, filtro === "todos" ? 10 : 30);
 
   function update(field, value) { setForm((f) => ({ ...f, [field]: value })); }
 
@@ -460,6 +463,12 @@ function CargarTab({ ambito }) {
   function eliminar(r) {
     callApi("deleteTransaccion", { id: r["ID"] })
       .then(() => { notify("ok", "Movimiento eliminado."); if (editingId === r["ID"]) cancelEdit(); loadAux(); })
+      .catch((e) => notify("err", e.message));
+  }
+
+  function marcarPagado(r) {
+    callApi("updateEstadoTransaccion", { id: r["ID"], estado: "Pagado" })
+      .then(() => { notify("ok", "Movimiento marcado como pagado."); loadAux(); })
       .catch((e) => notify("err", e.message));
   }
 
@@ -533,7 +542,20 @@ function CargarTab({ ambito }) {
 
       <div className="card">
         <h3>Últimos movimientos</h3>
-        {recientes.length === 0 && <div className="empty">Todavía no hay movimientos cargados.</div>}
+        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+          {[["todos", "Todos"], ["pendientes", "Pendientes"], ["pagados", "Pagados"]].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              className="btn-sm"
+              style={filtro === key
+                ? { background: "var(--accent)", color: "#fff" }
+                : { background: "var(--bg)", color: "var(--text-muted)" }}
+              onClick={() => setFiltro(key)}
+            >{label}</button>
+          ))}
+        </div>
+        {recientes.length === 0 && <div className="empty">No hay movimientos para este filtro.</div>}
         {recientes.map((r, i) => (
           <div className="list-row" key={i}>
             <div>
@@ -548,7 +570,8 @@ function CargarTab({ ambito }) {
               <div className="amount" style={{ color: r["Tipo"] === "Ingreso" ? "var(--success)" : "var(--text)" }}>
                 {r["Tipo"] === "Ingreso" ? "+" : "-"}{formatMoney(r["Monto"], r["Moneda"])}
               </div>
-              <div style={{ display: "flex", gap: 6, marginTop: 4, justifyContent: "flex-end" }}>
+              <div style={{ display: "flex", gap: 6, marginTop: 4, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                {r["Estado"] === "Pendiente" && <button type="button" className="btn-sm secondary" onClick={() => marcarPagado(r)}>Marcar pagado</button>}
                 <button type="button" className="btn-sm secondary" onClick={() => startEdit(r)}>Editar</button>
                 <ConfirmButton label="Eliminar" danger onConfirm={() => eliminar(r)} />
               </div>
