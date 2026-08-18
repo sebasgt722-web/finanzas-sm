@@ -611,6 +611,7 @@ function TarjetasTab({ ambito }) {
   const [notice, notify] = useNotice();
 
   const [tForm, setTForm] = useState({ nombre: "", diaCierre: "", diaVencimiento: "" });
+  const [editingTarjeta, setEditingTarjeta] = useState(null); // nombre original, o null
   const [savingT, setSavingT] = useState(false);
 
   const [cForm, setCForm] = useState({ tarjeta: "", descripcion: "", importeTotal: "", cantCuotas: "1", fechaCompra: todayISO() });
@@ -629,10 +630,28 @@ function TarjetasTab({ ambito }) {
     e.preventDefault();
     if (!tForm.nombre || !tForm.diaCierre || !tForm.diaVencimiento) { notify("err", "Completá nombre, día de cierre y vencimiento."); return; }
     setSavingT(true);
-    callApi("addTarjeta", { nombre: tForm.nombre, diaCierre: Number(tForm.diaCierre), diaVencimiento: Number(tForm.diaVencimiento) })
-      .then(() => { notify("ok", "Tarjeta agregada."); setTForm({ nombre: "", diaCierre: "", diaVencimiento: "" }); load(); })
+    const accion = editingTarjeta
+      ? callApi("updateTarjeta", { nombreOriginal: editingTarjeta, nombre: tForm.nombre, diaCierre: Number(tForm.diaCierre), diaVencimiento: Number(tForm.diaVencimiento) })
+      : callApi("addTarjeta", { nombre: tForm.nombre, diaCierre: Number(tForm.diaCierre), diaVencimiento: Number(tForm.diaVencimiento) });
+    accion
+      .then(() => {
+        notify("ok", editingTarjeta ? "Tarjeta actualizada." : "Tarjeta agregada.");
+        setTForm({ nombre: "", diaCierre: "", diaVencimiento: "" });
+        setEditingTarjeta(null);
+        load();
+      })
       .catch((e) => notify("err", e.message))
       .finally(() => setSavingT(false));
+  }
+
+  function startEditTarjeta(t) {
+    setEditingTarjeta(t["Nombre"]);
+    setTForm({ nombre: t["Nombre"], diaCierre: String(t["Día de Cierre"]), diaVencimiento: String(t["Día de Vencimiento"]) });
+  }
+
+  function cancelEditTarjeta() {
+    setEditingTarjeta(null);
+    setTForm({ nombre: "", diaCierre: "", diaVencimiento: "" });
   }
 
   function submitCompra(e) {
@@ -668,13 +687,20 @@ function TarjetasTab({ ambito }) {
       <Notice notice={notice} />
 
       <form className="card" onSubmit={submitTarjeta}>
-        <h3>Agregar tarjeta</h3>
+        <h3>{editingTarjeta ? "Editar tarjeta" : "Agregar tarjeta"}</h3>
         <div className="field"><label>Nombre</label><input value={tForm.nombre} onChange={(e) => setTForm({ ...tForm, nombre: e.target.value })} placeholder="Ej: Visa Galicia" /></div>
         <div className="row2">
           <div className="field"><label>Día de cierre</label><input type="number" min="1" max="31" value={tForm.diaCierre} onChange={(e) => setTForm({ ...tForm, diaCierre: e.target.value })} /></div>
           <div className="field"><label>Día de vencimiento</label><input type="number" min="1" max="31" value={tForm.diaVencimiento} onChange={(e) => setTForm({ ...tForm, diaVencimiento: e.target.value })} /></div>
         </div>
-        <button className="btn secondary" disabled={savingT}>{savingT ? "Guardando..." : "Agregar tarjeta"}</button>
+        {editingTarjeta ? (
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn" disabled={savingT}>{savingT ? "Guardando..." : "Guardar cambios"}</button>
+            <button type="button" className="btn secondary" onClick={cancelEditTarjeta}>Cancelar</button>
+          </div>
+        ) : (
+          <button className="btn secondary" disabled={savingT}>{savingT ? "Guardando..." : "Agregar tarjeta"}</button>
+        )}
       </form>
 
       {tarjetas.length > 0 && (
@@ -686,7 +712,10 @@ function TarjetasTab({ ambito }) {
                 <div className="desc">{t["Nombre"]}</div>
                 <div className="meta">Cierre día {t["Día de Cierre"]} · Vence día {t["Día de Vencimiento"]}</div>
               </div>
-              <ConfirmButton label="Eliminar" danger onConfirm={() => eliminarTarjeta(t)} />
+              <div style={{ display: "flex", gap: 6 }}>
+                <button type="button" className="btn-sm secondary" onClick={() => startEditTarjeta(t)}>Editar</button>
+                <ConfirmButton label="Eliminar" danger onConfirm={() => eliminarTarjeta(t)} />
+              </div>
             </div>
           ))}
         </div>
