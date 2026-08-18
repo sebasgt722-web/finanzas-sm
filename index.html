@@ -403,7 +403,7 @@ function DashboardTab({ ambito }) {
 }
 
 // ---------------- CARGAR (transacciones) ----------------
-const BLANK_TX = { fecha: todayISO(), tipo: "Gasto", categoria: "", moneda: "ARS", medioPago: "", monto: "", estado: "Pagado", nota: "" };
+const BLANK_TX = { fecha: todayISO(), tipo: "Gasto", categoria: "", moneda: "ARS", medioPago: "", monto: "", estado: "Pagado", nota: "", fechaVencimiento: todayISO() };
 
 function CargarTab({ ambito }) {
   const [form, setForm] = useState(BLANK_TX);
@@ -433,6 +433,7 @@ function CargarTab({ ambito }) {
     setForm({
       fecha: toDateInputValue(r["Fecha"]), tipo: r["Tipo"], categoria: r["Categoría"], moneda: r["Moneda"],
       medioPago: r["Medio de Pago"] || "", monto: String(r["Monto"]), estado: r["Estado"], nota: r["Nota"] || "",
+      fechaVencimiento: toDateInputValue(r["Fecha Vencimiento"] || r["Fecha"]),
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -485,6 +486,12 @@ function CargarTab({ ambito }) {
           <input list="cat-list" value={form.categoria} onChange={(e) => update("categoria", e.target.value)} placeholder="Ej: Comida, Software..." />
           <datalist id="cat-list">{categorias.map((c) => <option key={c} value={c} />)}</datalist>
         </div>
+        {form.tipo === "Gasto" && (
+          <div className="field">
+            <label>Fecha de vencimiento</label>
+            <input type="date" value={form.fechaVencimiento} onChange={(e) => update("fechaVencimiento", e.target.value)} />
+          </div>
+        )}
         <div className="row2">
           <div className="field">
             <label>Moneda</label>
@@ -531,7 +538,11 @@ function CargarTab({ ambito }) {
           <div className="list-row" key={i}>
             <div>
               <div className="desc">{r["Categoría"]}<span className="badge">{r["Tipo"]}</span></div>
-              <div className="meta">{formatDate(r["Fecha"])} · {r["Medio de Pago"]} {r["Estado"] === "Pendiente" && <span className="badge warn">Pendiente</span>}</div>
+              <div className="meta">
+                {formatDate(r["Fecha"])} · {r["Medio de Pago"]}
+                {r["Estado"] === "Pendiente" && <span className="badge warn">Pendiente</span>}
+                {r["Tipo"] === "Gasto" && r["Estado"] === "Pendiente" && r["Fecha Vencimiento"] && <> · vence {formatDate(r["Fecha Vencimiento"])}</>}
+              </div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div className="amount" style={{ color: r["Tipo"] === "Ingreso" ? "var(--success)" : "var(--text)" }}>
