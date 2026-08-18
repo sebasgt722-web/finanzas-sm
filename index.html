@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="Personal">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Finanzas SM — Personal &amp; Atiexa</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0C5D94" />
+<link rel="icon" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Finanzas SM" />
+<style>
+  :root{
+    --bg:#F1F3F6;
+    --surface:#FFFFFF;
+    --text:#1C2430;
+    --text-muted:#64748B;
+    --border:#E3E7ED;
+    --success:#1E8E5A;
+    --success-soft:#E5F4EC;
+    --danger:#C1443A;
+    --danger-soft:#FBEAE8;
+    --radius:14px;
+    --radius-sm:10px;
+    --shadow: 0 1px 2px rgba(20,25,35,.04), 0 6px 20px rgba(20,25,35,.05);
+  }
+  html[data-theme="Personal"]{
+    --accent:#A6642B;
+    --accent-2:#7A4B22;
+    --accent-soft:#F4E9DC;
+  }
+  html[data-theme="Atiexa"]{
+    --accent:#0C5D94;
+    --accent-2:#F09003;
+    --accent-3:#92BB22;
+    --accent-soft:#E3EEF6;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:48px;
+  }
+  .app{max-width:640px;margin:0 auto;padding:0 16px;}
+  .header{
+    position:sticky;top:0;z-index:10;
+    background:var(--bg);
+    padding:18px 16px 10px;
+    margin:0 -16px;
+  }
+  .header-row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .brand{display:flex;flex-direction:column;line-height:1.1;}
+  .brand-title{font-size:20px;font-weight:800;letter-spacing:-.02em;color:var(--text);}
+  .brand-sub{font-size:12px;color:var(--text-muted);font-weight:500;margin-top:2px;}
+  .toggle{
+    display:flex;background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:3px;
+    box-shadow:var(--shadow);
+  }
+  .toggle button{
+    border:none;background:transparent;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:700;
+    color:var(--text-muted);cursor:pointer;transition:.15s;white-space:nowrap;
+  }
+  .toggle button.active{background:var(--accent);color:#fff;}
+  .tabnav{
+    display:flex;gap:6px;overflow-x:auto;padding:12px 0 8px;margin:0 -16px;padding-left:16px;padding-right:16px;
+    scrollbar-width:none;
+  }
+  .tabnav::-webkit-scrollbar{display:none;}
+  .tabnav button{
+    flex:0 0 auto;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);
+    padding:8px 14px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s;
+  }
+  .tabnav button.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-soft);}
+  .card{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:16px;margin-bottom:14px;box-shadow:var(--shadow);
+  }
+  .card h3{margin:0 0 12px;font-size:14px;font-weight:800;color:var(--text);letter-spacing:-.01em;}
+  .card h3 .muted{color:var(--text-muted);font-weight:600;}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:5px;}
+  .field input,.field select{
+    width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);
+    font-size:15px;color:var(--text);background:#fff;
+  }
+  .field input:focus,.field select:focus{outline:2px solid var(--accent);outline-offset:1px;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .btn{
+    width:100%;padding:12px;border:none;border-radius:var(--radius-sm);background:var(--accent);color:#fff;
+    font-size:15px;font-weight:700;cursor:pointer;transition:.15s;
+  }
+  .btn:disabled{opacity:.55;cursor:default;}
+  .btn.secondary{background:var(--accent-soft);color:var(--accent);}
+  .btn-sm{padding:6px 10px;font-size:12px;border-radius:8px;width:auto;}
+  .notice{
+    padding:10px 12px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;margin-bottom:12px;
+  }
+  .notice.ok{background:var(--success-soft);color:var(--success);}
+  .notice.err{background:var(--danger-soft);color:var(--danger);}
+  .muted{color:var(--text-muted);}
+  .empty{color:var(--text-muted);font-size:13px;padding:8px 0;}
+  .list-row{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:10px 0;border-top:1px solid var(--border);
+  }
+  .list-row:first-of-type{border-top:none;}
+  .list-row .desc{font-size:14px;font-weight:600;color:var(--text);}
+  .list-row .meta{font-size:12px;color:var(--text-muted);margin-top:2px;}
+  .list-row .amount{font-size:14px;font-weight:800;white-space:nowrap;}
+  .badge{
+    display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;
+    background:var(--accent-soft);color:var(--accent);margin-left:6px;
+  }
+  .badge.warn{background:#FDF0DC;color:#946200;}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .stat{background:var(--accent-soft);border-radius:var(--radius-sm);padding:12px;}
+  .stat .label{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.03em;}
+  .stat .value{font-size:18px;font-weight:800;margin-top:4px;color:var(--text);}
+  .bar-row{margin-bottom:10px;}
+  .bar-row .bar-label{display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:4px;}
+  .bar-track{background:var(--bg);border-radius:6px;height:8px;overflow:hidden;}
+  .bar-fill{background:var(--accent);height:100%;border-radius:6px;}
+  .spinner{
+    width:18px;height:18px;border:2.5px solid var(--accent-soft);border-top-color:var(--accent);
+    border-radius:50%;animation:spin .7s linear infinite;display:inline-block;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .center{display:flex;align-items:center;justify-content:center;padding:24px 0;}
+  .footer-note{text-align:center;color:var(--text-muted);font-size:11px;padding:20px 0 0;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+// ==========================================================
+// Reemplazá esta URL si volvés a implementar el backend y
+// Google te da una URL nueva.
+// ==========================================================
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlsnm5QbYBrXDmiMu-Quc7iCqoHOHaPV3ldlQgWgwfKlrP0vLDq4a113pIpxUgcD4ArA/exec";
+
+async function callApi(action, payload = {}) {
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action, payload }),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || "Error desconocido");
+  return json.data;
+}
+
+function formatMoney(value, moneda) {
+  const n = Number(value) || 0;
+  const symbol = moneda === "USD" ? "US$" : "$";
+  return symbol + " " + n.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function formatDate(d) {
+  if (!d) return "-";
+  const dt = new Date(d);
+  if (isNaN(dt)) return String(d);
+  return dt.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function todayISO() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+function toDateInputValue(val) {
+  if (!val) return todayISO();
+  const d = new Date(val);
+  if (isNaN(d)) return todayISO();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+// Botón que pide confirmación en el lugar, sin usar alert()/confirm() del navegador
+function ConfirmButton({ label, onConfirm, danger }) {
+  const [confirming, setConfirming] = useState(false);
+  if (confirming) {
+    return (
+      <span style={{ display: "inline-flex", gap: 6 }}>
+        <button type="button" className="btn-sm" style={{ background: "var(--danger)", color: "#fff" }} onClick={() => { setConfirming(false); onConfirm(); }}>Confirmar</button>
+        <button type="button" className="btn-sm secondary" onClick={() => setConfirming(false)}>Cancelar</button>
+      </span>
+    );
+  }
+  return (
+    <button type="button" className="btn-sm secondary" style={danger ? { color: "var(--danger)" } : undefined} onClick={() => setConfirming(true)}>{label}</button>
+  );
+}
+
+function useNotice() {
+  const [notice, setNotice] = useState(null);
+  const notify = useCallback((type, text) => {
+    setNotice({ type, text });
+    setTimeout(() => setNotice(null), 4000);
+  }, []);
+  return [notice, notify];
+}
+
+function Notice({ notice }) {
+  if (!notice) return null;
+  return <div className={"notice " + (notice.type === "ok" ? "ok" : "err")}>{notice.text}</div>;
+}
+
+// ---------------- HEADER ----------------
+function Header({ ambito, setAmbito }) {
+  return (
+    <div className="header">
+      <div className="header-row">
+        <div className="brand">
+          <span className="brand-title">Finanzas SM</span>
+          <span className="brand-sub">Personal &amp; Atiexa</span>
+        </div>
+        <div className="toggle">
+          <button className={ambito === "Personal" ? "active" : ""} onClick={() => setAmbito("Personal")}>Personal</button>
+          <button className={ambito === "Atiexa" ? "active" : ""} onClick={() => setAmbito("Atiexa")}>Atiexa</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TabNav({ tab, setTab }) {
+  const tabs = [
+    ["dashboard", "Dashboard"],
+    ["cargar", "Cargar"],
+    ["tarjetas", "Tarjetas / Cuotas"],
+    ["deudas", "Deudas"],
+    ["ahorros", "Ahorros"],
+  ];
+  return (
+    <div className="tabnav">
+      {tabs.map(([key, label]) => (
+        <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key)}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
+// ---------------- DASHBOARD ----------------
+function DashboardTab({ ambito }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [notice, notify] = useNotice();
+
+  const load = useCallback(() => {
+    setLoading(true);
+    callApi("getDashboard", { ambito })
+      .then(setData)
+      .catch((e) => notify("err", e.message))
+      .finally(() => setLoading(false));
+  }, [ambito]);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return <div className="center"><span className="spinner"></span></div>;
+  if (!data) return null;
+
+  const monedas = Object.keys(data.totalesPorMoneda || {});
+  const categorias = Object.entries(data.gastosPorCategoria || {}).sort((a, b) => b[1] - a[1]);
+  const maxCat = categorias.length ? categorias[0][1] : 1;
+
+  const venc = data.proximosVencimientos || {};
+  const vencItems = [
+    ...(venc.cuotasTarjeta || []).map((c) => ({
+      desc: c["Descripción"] + " (" + c["Nro Cuota"] + "/" + c["Cant. Cuotas"] + ")",
+      fecha: c["Fecha Vencimiento"],
+      monto: c["Monto Cuota"],
+      tipo: "Tarjeta",
+    })),
+    ...(venc.deudasInformales || []).map((d) => ({
+      desc: d["Acreedor"] + " (" + d["Nro Cuota"] + "/" + d["Cant. Cuotas"] + ")",
+      fecha: d["Fecha Vencimiento"],
+      monto: d["Monto Cuota"],
+      tipo: "Deuda",
+    })),
+    ...(venc.gastosPendientes || []).map((g) => ({
+      desc: g["Categoría"] + (g["Nota"] ? " — " + g["Nota"] : ""),
+      fecha: g["Fecha"],
+      monto: g["Monto"],
+      tipo: "Gasto",
+    })),
+  ].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+  return (
+    <div>
+      <Notice notice={notice} />
+      <div className="card">
+        <h3>Resumen del mes <span className="muted">· {ambito}</span></h3>
+        {monedas.length === 0 && <div className="empty">Todavía no cargaste movimientos este mes.</div>}
+        {monedas.map((m) => {
+          const t = data.totalesPorMoneda[m];
+          return (
+            <div key={m} className="stat-grid" style={{ marginBottom: 10 }}>
+              <div className="stat">
+                <div className="label">Ingresos {m}</div>
+                <div className="value">{formatMoney(t.ingresos, m)}</div>
+              </div>
+              <div className="stat">
+                <div className="label">Gastos {m}</div>
+                <div className="value">{formatMoney(t.gastos, m)}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="card">
+        <h3>Gastos por categoría (este mes)</h3>
+        {categorias.length === 0 && <div className="empty">Sin gastos cargados este mes.</div>}
+        {categorias.map(([cat, val]) => (
+          <div className="bar-row" key={cat}>
+            <div className="bar-label"><span>{cat}</span><span>{val.toLocaleString("es-AR")}</span></div>
+            <div className="bar-track"><div className="bar-fill" style={{ width: (val / maxCat) * 100 + "%" }}></div></div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card">
+        <h3>Próximos vencimientos (30 días)</h3>
+        {vencItems.length === 0 && <div className="empty">No tenés vencimientos próximos. 🎉</div>}
+        {vencItems.map((it, i) => (
+          <div className="list-row" key={i}>
+            <div>
+              <div className="desc">{it.desc}<span className="badge warn">{it.tipo}</span></div>
+              <div className="meta">Vence {formatDate(it.fecha)}</div>
+            </div>
+            <div className="amount">{formatMoney(it.monto)}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card">
+        <h3>Ahorros e inversiones</h3>
+        {(!data.ahorrosInversiones || data.ahorrosInversiones.length === 0) && <div className="empty">Todavía no cargaste ahorros.</div>}
+        {(data.ahorrosInversiones || []).map((a, i) => (
+          <div className="list-row" key={i}>
+            <div>
+              <div className="desc">{a["Tipo"]}<span className="badge">{a["Moneda"]}</span></div>
+              <div className="meta">
+                Capital {formatMoney(a["Capital"], a["Moneda"])}
+                {a["Tipo"] === "FCI" && <> · Rinde {formatMoney(a["Rendimiento Acumulado"], a["Moneda"])} ({a["Días Transcurridos"]} días)</>}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button className="btn secondary" onClick={load}>Actualizar</button>
+    </div>
+  );
+}
+
+// ---------------- CARGAR (transacciones) ----------------
+const BLANK_TX = { fecha: todayISO(), tipo: "Gasto", categoria: "", moneda: "ARS", medioPago: "", monto: "", estado: "Pagado", nota: "" };
+
+function CargarTab({ ambito }) {
+  const [form, setForm] = useState(BLANK_TX);
+  const [editingId, setEditingId] = useState(null);
+  const [categorias, setCategorias] = useState([]);
+  const [medios, setMedios] = useState(["Efectivo", "Transferencia", "Débito"]);
+  const [recientes, setRecientes] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [notice, notify] = useNotice();
+
+  const loadAux = useCallback(() => {
+    callApi("getCategorias", { ambito }).then(setCategorias).catch(() => {});
+    callApi("getTarjetas", {}).then((tj) => setMedios(["Efectivo", "Transferencia", "Débito", ...tj.map((t) => t["Nombre"])])).catch(() => {});
+    callApi("getTransacciones", { ambito }).then((rows) => {
+      const ordenado = [...rows].sort((a, b) => new Date(b["Fecha"]) - new Date(a["Fecha"]));
+      setRecientes(ordenado.slice(0, 10));
+    }).catch(() => {});
+  }, [ambito]);
+
+  useEffect(() => { loadAux(); }, [loadAux]);
+  useEffect(() => { setEditingId(null); setForm(BLANK_TX); }, [ambito]);
+
+  function update(field, value) { setForm((f) => ({ ...f, [field]: value })); }
+
+  function startEdit(r) {
+    setEditingId(r["ID"]);
+    setForm({
+      fecha: toDateInputValue(r["Fecha"]), tipo: r["Tipo"], categoria: r["Categoría"], moneda: r["Moneda"],
+      medioPago: r["Medio de Pago"] || "", monto: String(r["Monto"]), estado: r["Estado"], nota: r["Nota"] || "",
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelEdit() { setEditingId(null); setForm(BLANK_TX); }
+
+  function submit(e) {
+    e.preventDefault();
+    if (!form.categoria || !form.monto) { notify("err", "Completá al menos categoría y monto."); return; }
+    setSaving(true);
+    const action = editingId ? "updateTransaccion" : "addTransaccion";
+    const payload = editingId ? { ...form, id: editingId, ambito, monto: Number(form.monto) } : { ...form, ambito, monto: Number(form.monto) };
+    callApi(action, payload)
+      .then(() => {
+        notify("ok", editingId ? "Movimiento actualizado." : "Movimiento cargado.");
+        setEditingId(null);
+        setForm(BLANK_TX);
+        loadAux();
+      })
+      .catch((e) => notify("err", e.message))
+      .finally(() => setSaving(false));
+  }
+
+  function eliminar(r) {
+    callApi("deleteTransaccion", { id: r["ID"] })
+      .then(() => { notify("ok", "Movimiento eliminado."); if (editingId === r["ID"]) cancelEdit(); loadAux(); })
+      .catch((e) => notify("err", e.message));
+  }
+
+  return (
+    <div>
+      <Notice notice={notice} />
+      <form className="card" onSubmit={submit}>
+        <h3>{editingId ? "Editar movimiento" : "Cargar movimiento"} <span className="muted">· {ambito}</span></h3>
+        <div className="row2">
+          <div className="field">
+            <label>Fecha</label>
+            <input type="date" value={form.fecha} onChange={(e) => update("fecha", e.target.value)} />
+          </div>
+          <div className="field">
+            <label>Tipo</label>
+            <select value={form.tipo} onChange={(e) => update("tipo", e.target.value)}>
+              <option>Gasto</option>
+              <option>Ingreso</option>
+            </select>
+          </div>
+        </div>
+        <div className="field">
+          <label>Categoría</label>
+          <input list="cat-list" value={form.categoria} onChange={(e) => update("categoria", e.target.value)} placeholder="Ej: Comida, Software..." />
+          <datalist id="cat-list">{categorias.map((c) => <option key={c} value={c} />)}</datalist>
+        </div>
+        <div className="row2">
+          <div className="field">
+            <label>Moneda</label>
+            <select value={form.moneda} onChange={(e) => update("moneda", e.target.value)}>
+              <option>ARS</option>
+              <option>USD</option>
+            </select>
+          </div>
+          <div className="field">
+            <label>Monto</label>
+            <input type="number" step="0.01" value={form.monto} onChange={(e) => update("monto", e.target.value)} placeholder="0.00" />
+          </div>
+        </div>
+        <div className="field">
+          <label>Medio de pago</label>
+          <input list="medio-list" value={form.medioPago} onChange={(e) => update("medioPago", e.target.value)} placeholder="Efectivo, tarjeta..." />
+          <datalist id="medio-list">{medios.map((m) => <option key={m} value={m} />)}</datalist>
+        </div>
+        <div className="field">
+          <label>Estado</label>
+          <select value={form.estado} onChange={(e) => update("estado", e.target.value)}>
+            <option>Pagado</option>
+            <option>Pendiente</option>
+          </select>
+        </div>
+        <div className="field">
+          <label>Nota (opcional)</label>
+          <input value={form.nota} onChange={(e) => update("nota", e.target.value)} placeholder="Detalle..." />
+        </div>
+        {editingId ? (
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn" disabled={saving}>{saving ? "Guardando..." : "Guardar cambios"}</button>
+            <button type="button" className="btn secondary" onClick={cancelEdit}>Cancelar</button>
+          </div>
+        ) : (
+          <button className="btn" disabled={saving}>{saving ? "Guardando..." : "Guardar movimiento"}</button>
+        )}
+      </form>
+
+      <div className="card">
+        <h3>Últimos movimientos</h3>
+        {recientes.length === 0 && <div className="empty">Todavía no hay movimientos cargados.</div>}
+        {recientes.map((r, i) => (
+          <div className="list-row" key={i}>
+            <div>
+              <div className="desc">{r["Categoría"]}<span className="badge">{r["Tipo"]}</span></div>
+              <div className="meta">{formatDate(r["Fecha"])} · {r["Medio de Pago"]} {r["Estado"] === "Pendiente" && <span className="badge warn">Pendiente</span>}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div className="amount" style={{ color: r["Tipo"] === "Ingreso" ? "var(--success)" : "var(--text)" }}>
+                {r["Tipo"] === "Ingreso" ? "+" : "-"}{formatMoney(r["Monto"], r["Moneda"])}
+              </div>
+              <div style={{ display: "flex", gap: 6, marginTop: 4, justifyContent: "flex-end" }}>
+                <button type="button" className="btn-sm secondary" onClick={() => startEdit(r)}>Editar</button>
+                <ConfirmButton label="Eliminar" danger onConfirm={() => eliminar(r)} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------- TARJETAS / CUOTAS ----------------
+function TarjetasTab({ ambito }) {
+  const [tarjetas, setTarjetas] = useState([]);
+  const [cuotas, setCuotas] = useState([]);
+  const [notice, notify] = useNotice();
+
+  const [tForm, setTForm] = useState({ nombre: "", diaCierre: "", diaVencimiento: "" });
+  const [savingT, setSavingT] = useState(false);
+
+  const [cForm, setCForm] = useState({ tarjeta: "", descripcion: "", importeTotal: "", cantCuotas: "1", fechaCompra: todayISO() });
+  const [savingC, setSavingC] = useState(false);
+
+  const load = useCallback(() => {
+    callApi("getTarjetas", {}).then(setTarjetas).catch(() => {});
+    callApi("getCuotas", { ambito, estado: "Pendiente" }).then((rows) => {
+      setCuotas([...rows].sort((a, b) => new Date(a["Fecha Vencimiento"]) - new Date(b["Fecha Vencimiento"])));
+    }).catch(() => {});
+  }, [ambito]);
+
+  useEffect(() => { load(); }, [load]);
+
+  function submitTarjeta(e) {
+    e.preventDefault();
+    if (!tForm.nombre || !tForm.diaCierre || !tForm.diaVencimiento) { notify("err", "Completá nombre, día de cierre y vencimiento."); return; }
+    setSavingT(true);
+    callApi("addTarjeta", { nombre: tForm.nombre, diaCierre: Number(tForm.diaCierre), diaVencimiento: Number(tForm.diaVencimiento) })
+      .then(() => { notify("ok", "Tarjeta agregada."); setTForm({ nombre: "", diaCierre: "", diaVencimiento: "" }); load(); })
+      .catch((e) => notify("err", e.message))
+      .finally(() => setSavingT(false));
+  }
+
+  function submitCompra(e) {
+    e.preventDefault();
+    if (!cForm.tarjeta || !cForm.importeTotal || !cForm.cantCuotas) { notify("err", "Completá tarjeta, importe y cuotas."); return; }
+    setSavingC(true);
+    callApi("addCompraCuotas", { ...cForm, ambito, importeTotal: Number(cForm.importeTotal), cantCuotas: Number(cForm.cantCuotas) })
+      .then(() => { notify("ok", "Compra en cuotas cargada."); setCForm({ tarjeta: cForm.tarjeta, descripcion: "", importeTotal: "", cantCuotas: "1", fechaCompra: todayISO() }); load(); })
+      .catch((e) => notify("err", e.message))
+      .finally(() => setSavingC(false));
+  }
+
+  function marcarPagada(c) {
+    callApi("updateEstadoCuota", { idCompra: c["ID Compra"], nroCuota: c["Nro Cuota"], estado: "Pagado" })
+      .then(() => { notify("ok", "Cuota marcada como pagada."); load(); })
+      .catch((e) => notify("err", e.message));
+  }
+
+  function eliminarTarjeta(t) {
+    callApi("deleteTarjeta", { nombre: t["Nombre"] })
+      .then(() => { notify("ok", "Tarjeta eliminada."); load(); })
+      .catch((e) => notify("err", e.message));
+  }
+
+  function eliminarCompra(c) {
+    callApi("deleteCompraCuotas", { idCompra: c["ID Compra"] })
+      .then(() => { notify("ok", "Compra eliminada (todas sus cuotas)."); load(); })
+      .catch((e) => notify("err", e.message));
+  }
+
+  return (
+    <div>
+      <Notice notice={notice} />
+
+      <form className="card" onSubmit={submitTarjeta}>
+        <h3>Agregar tarjeta</h3>
+        <div className="field"><label>Nombre</label><input value={tForm.nombre} onChange={(e) => setTForm({ ...tForm, nombre: e.target.value })} placeholder="Ej: Visa Galicia" /></div>
+        <div className="row2">
+          <div className="field"><label>Día de cierre</label><input type="number" min="1" max="31" value={tForm.diaCierre} onChange={(e) => setTForm({ ...tForm, diaCierre: e.target.value })} /></div>
+          <div className="field"><label>Día de vencimiento</label><input type="number" min="1" max="31" value={tForm.diaVencimiento} onChange={(e) => setTForm({ ...tForm, diaVencimiento: e.target.value })} /></div>
+        </div>
+        <button className="btn secondary" disabled={savingT}>{savingT ? "Guardando..." : "Agregar tarjeta"}</button>
+      </form>
+
+      {tarjetas.length > 0 && (
+        <div className="card">
+          <h3>Tus tarjetas</h3>
+          {tarjetas.map((t, i) => (
+            <div className="list-row" key={i}>
+              <div>
+                <div className="desc">{t["Nombre"]}</div>
+                <div className="meta">Cierre día {t["Día de Cierre"]} · Vence día {t["Día de Vencimiento"]}</div>
+              </div>
+              <ConfirmButton label="Eliminar" danger onConfirm={() => eliminarTarjeta(t)} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      <form className="card" onSubmit={submitCompra}>
+        <h3>Compra en cuotas <span className="muted">· {ambito}</span></h3>
+        <div className="field">
+          <label>Tarjeta</label>
+          <select value={cForm.tarjeta} onChange={(e) => setCForm({ ...cForm, tarjeta: e.target.value })}>
+            <option value="">Elegir tarjeta...</option>
+            {tarjetas.map((t) => <option key={t["Nombre"]} value={t["Nombre"]}>{t["Nombre"]}</option>)}
+          </select>
+        </div>
+        <div className="field"><label>Descripción</label><input value={cForm.descripcion} onChange={(e) => setCForm({ ...cForm, descripcion: e.target.value })} placeholder="Ej: Notebook" /></div>
+        <div className="row2">
+          <div className="field"><label>Importe total</label><input type="number" step="0.01" value={cForm.importeTotal} onChange={(e) => setCForm({ ...cForm, importeTotal: e.target.value })} /></div>
+          <div className="field"><label>Cant. cuotas</label><input type="number" min="1" value={cForm.cantCuotas} onChange={(e) => setCForm({ ...cForm, cantCuotas: e.target.value })} /></div>
+        </div>
+        <div className="field"><label>Fecha de compra</label><input type="date" value={cForm.fechaCompra} onChange={(e) => setCForm({ ...cForm, fechaCompra: e.target.value })} /></div>
+        <button className="btn" disabled={savingC}>{savingC ? "Guardando..." : "Cargar compra"}</button>
+      </form>
+
+      <div className="card">
+        <h3>Cuotas pendientes <span className="muted">· {ambito}</span></h3>
+        {cuotas.length === 0 && <div className="empty">No tenés cuotas pendientes.</div>}
+        {cuotas.map((c, i) => (
+          <div className="list-row" key={i}>
+            <div>
+              <div className="desc">{c["Descripción"]} <span className="badge">{c["Nro Cuota"]}/{c["Cant. Cuotas"]}</span></div>
+              <div className="meta">{c["Tarjeta"]} · vence {formatDate(c["Fecha Vencimiento"])}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div className="amount">{formatMoney(c["Monto Cuota"])}</div>
+              <div style={{ display: "flex", gap: 6, marginTop: 4, justifyContent: "flex-end" }}>
+                <button className="btn-sm secondary" onClick={() => marcarPagada(c)}>Marcar pagada</button>
+                <ConfirmButton label="Eliminar compra" danger onConfirm={() => eliminarCompra(c)} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------- DEUDAS INFORMALES ----------------
+function DeudasTab({ ambito }) {
+  const [deudas, setDeudas] = useState([]);
+  const [notice, notify] = useNotice();
+  const [form, setForm] = useState({ acreedor: "", importeTotal: "", cantCuotas: "1", frecuencia: "Mensual", fechaPrimeraCuota: todayISO() });
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(() => {
+    callApi("getDeudasInformales", { ambito, estado: "Pendiente" }).then((rows) => {
+      setDeudas([...rows].sort((a, b) => new Date(a["Fecha Vencimiento"]) - new Date(b["Fecha Vencimiento"])));
+    }).catch(() => {});
+  }, [ambito]);
+
+  useEffect(() => { load(); }, [load]);
+
+  function submit(e) {
+    e.preventDefault();
+    if (!form.acreedor || !form.importeTotal || !form.cantCuotas) { notify("err", "Completá acreedor, importe y cuotas."); return; }
+    setSaving(true);
+    callApi("addDeudaInformal", { ...form, ambito, importeTotal: Number(form.importeTotal), cantCuotas: Number(form.cantCuotas) })
+      .then(() => { notify("ok", "Deuda cargada."); setForm({ acreedor: "", importeTotal: "", cantCuotas: "1", frecuencia: "Mensual", fechaPrimeraCuota: todayISO() }); load(); })
+      .catch((e) => notify("err", e.message))
+      .finally(() => setSaving(false));
+  }
+
+  function marcarPagada(d) {
+    callApi("updateEstadoDeuda", { idDeuda: d["ID Deuda"], nroCuota: d["Nro Cuota"], estado: "Pagado" })
+      .then(() => { notify("ok", "Cuota marcada como pagada."); load(); })
+      .catch((e) => notify("err", e.message));
+  }
+
+  function eliminarDeuda(d) {
+    callApi("deleteDeudaInformal", { idDeuda: d["ID Deuda"] })
+      .then(() => { notify("ok", "Deuda eliminada (todas sus cuotas)."); load(); })
+      .catch((e) => notify("err", e.message));
+  }
+
+  return (
+    <div>
+      <Notice notice={notice} />
+      <form className="card" onSubmit={submit}>
+        <h3>Deuda informal <span className="muted">· {ambito}</span></h3>
+        <div className="field"><label>Acreedor</label><input value={form.acreedor} onChange={(e) => setForm({ ...form, acreedor: e.target.value })} placeholder="¿A quién le debés?" /></div>
+        <div className="row2">
+          <div className="field"><label>Importe total</label><input type="number" step="0.01" value={form.importeTotal} onChange={(e) => setForm({ ...form, importeTotal: e.target.value })} /></div>
+          <div className="field"><label>Cant. cuotas</label><input type="number" min="1" value={form.cantCuotas} onChange={(e) => setForm({ ...form, cantCuotas: e.target.value })} /></div>
+        </div>
+        <div className="row2">
+          <div className="field">
+            <label>Frecuencia</label>
+            <select value={form.frecuencia} onChange={(e) => setForm({ ...form, frecuencia: e.target.value })}>
+              <option>Mensual</option><option>Quincenal</option><option>Semanal</option>
+            </select>
+          </div>
+          <div className="field"><label>Primera cuota</label><input type="date" value={form.fechaPrimeraCuota} onChange={(e) => setForm({ ...form, fechaPrimeraCuota: e.target.value })} /></div>
+        </div>
+        <button className="btn" disabled={saving}>{saving ? "Guardando..." : "Cargar deuda"}</button>
+      </form>
+
+      <div className="card">
+        <h3>Pendientes <span className="muted">· {ambito}</span></h3>
+        {deudas.length === 0 && <div className="empty">No tenés deudas informales pendientes.</div>}
+        {deudas.map((d, i) => (
+          <div className="list-row" key={i}>
+            <div>
+              <div className="desc">{d["Acreedor"]} <span className="badge">{d["Nro Cuota"]}/{d["Cant. Cuotas"]}</span></div>
+              <div className="meta">vence {formatDate(d["Fecha Vencimiento"])}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div className="amount">{formatMoney(d["Monto Cuota"])}</div>
+              <div style={{ display: "flex", gap: 6, marginTop: 4, justifyContent: "flex-end" }}>
+                <button className="btn-sm secondary" onClick={() => marcarPagada(d)}>Marcar pagada</button>
+                <ConfirmButton label="Eliminar" danger onConfirm={() => eliminarDeuda(d)} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------- AHORROS E INVERSIONES ----------------
+function AhorrosTab({ ambito }) {
+  const [ahorros, setAhorros] = useState([]);
+  const [notice, notify] = useNotice();
+  const [form, setForm] = useState({ tipo: "Efectivo", capital: "", moneda: "ARS", fechaCarga: todayISO(), tasaTNA: "" });
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(() => {
+    callApi("getAhorrosInversiones", { ambito }).then(setAhorros).catch(() => {});
+  }, [ambito]);
+
+  function eliminar(a) {
+    callApi("deleteAhorroInversion", { id: a["ID"] })
+      .then(() => { notify("ok", "Registro eliminado."); load(); })
+      .catch((e) => notify("err", e.message));
+  }
+
+  useEffect(() => { load(); }, [load]);
+
+  function submit(e) {
+    e.preventDefault();
+    if (!form.capital) { notify("err", "Completá el capital."); return; }
+    if (form.tipo === "FCI" && !form.tasaTNA) { notify("err", "Completá la tasa TNA del fondo."); return; }
+    setSaving(true);
+    callApi("addAhorroInversion", { ...form, ambito, capital: Number(form.capital), tasaTNA: Number(form.tasaTNA || 0) })
+      .then(() => { notify("ok", "Ahorro/inversión cargado."); setForm({ tipo: "Efectivo", capital: "", moneda: "ARS", fechaCarga: todayISO(), tasaTNA: "" }); load(); })
+      .catch((e) => notify("err", e.message))
+      .finally(() => setSaving(false));
+  }
+
+  return (
+    <div>
+      <Notice notice={notice} />
+      <form className="card" onSubmit={submit}>
+        <h3>Nuevo ahorro / inversión <span className="muted">· {ambito}</span></h3>
+        <div className="row2">
+          <div className="field">
+            <label>Tipo</label>
+            <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}>
+              <option>Efectivo</option><option>FCI</option>
+            </select>
+          </div>
+          <div className="field">
+            <label>Moneda</label>
+            <select value={form.moneda} onChange={(e) => setForm({ ...form, moneda: e.target.value })}>
+              <option>ARS</option><option>USD</option>
+            </select>
+          </div>
+        </div>
+        <div className="row2">
+          <div className="field"><label>Capital</label><input type="number" step="0.01" value={form.capital} onChange={(e) => setForm({ ...form, capital: e.target.value })} /></div>
+          <div className="field"><label>Fecha de carga</label><input type="date" value={form.fechaCarga} onChange={(e) => setForm({ ...form, fechaCarga: e.target.value })} /></div>
+        </div>
+        {form.tipo === "FCI" && (
+          <div className="field"><label>Tasa TNA (%)</label><input type="number" step="0.01" value={form.tasaTNA} onChange={(e) => setForm({ ...form, tasaTNA: e.target.value })} placeholder="Ej: 38" /></div>
+        )}
+        <button className="btn" disabled={saving}>{saving ? "Guardando..." : "Guardar"}</button>
+      </form>
+
+      <div className="card">
+        <h3>Tus ahorros e inversiones <span className="muted">· {ambito}</span></h3>
+        {ahorros.length === 0 && <div className="empty">Todavía no cargaste nada acá.</div>}
+        {ahorros.map((a, i) => (
+          <div className="list-row" key={i}>
+            <div>
+              <div className="desc">{a["Tipo"]}<span className="badge">{a["Moneda"]}</span></div>
+              <div className="meta">
+                Cargado {formatDate(a["Fecha de Carga"])}
+                {a["Tipo"] === "FCI" && <> · TNA {a["Tasa TNA (%)"]}% · {a["Días Transcurridos"]} días</>}
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div className="amount">{formatMoney(a["Capital"], a["Moneda"])}</div>
+              {a["Tipo"] === "FCI" && <div className="meta" style={{ color: "var(--success)", fontWeight: 700 }}>+{formatMoney(a["Rendimiento Acumulado"], a["Moneda"])}</div>}
+              <div style={{ marginTop: 4 }}><ConfirmButton label="Eliminar" danger onConfirm={() => eliminar(a)} /></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------- APP ----------------
+function App() {
+  const [ambito, setAmbito] = useState("Personal");
+  const [tab, setTab] = useState("dashboard");
+
+  useEffect(() => { document.documentElement.dataset.theme = ambito; }, [ambito]);
+
+  return (
+    <div className="app">
+      <Header ambito={ambito} setAmbito={setAmbito} />
+      <TabNav tab={tab} setTab={setTab} />
+      <main>
+        {tab === "dashboard" && <DashboardTab ambito={ambito} />}
+        {tab === "cargar" && <CargarTab ambito={ambito} />}
+        {tab === "tarjetas" && <TarjetasTab ambito={ambito} />}
+        {tab === "deudas" && <DeudasTab ambito={ambito} />}
+        {tab === "ahorros" && <AhorrosTab ambito={ambito} />}
+      </main>
+      <div className="footer-note">Conectado a tu Google Sheet · Finanzas_Seba</div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
