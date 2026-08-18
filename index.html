@@ -279,6 +279,7 @@ function TabNav({ tab, setTab }) {
     ["tarjetas", "Tarjetas / Cuotas"],
     ["deudas", "Deudas"],
     ["ahorros", "Ahorros"],
+    ["fijos", "Gastos Fijos"],
   ];
   return (
     <div className="tabnav">
@@ -397,6 +398,26 @@ function DashboardTab({ ambito }) {
           </div>
         ))}
       </div>
+
+      {data.gastosFijosDelMes && data.gastosFijosDelMes.length > 0 && (
+        <div className="card">
+          <h3>Gastos fijos de este mes</h3>
+          {data.gastosFijosDelMes.map((f, i) => (
+            <div className="list-row" key={i}>
+              <div>
+                <div className="desc">
+                  {f.nombre}
+                  <span className="badge" style={f.cargado ? { background: "var(--success-soft)", color: "var(--success)" } : { background: "#FDF0DC", color: "#946200" }}>
+                    {f.cargado ? "Cargado" : "Pendiente"}
+                  </span>
+                </div>
+                <div className="meta">{f.categoria}{!f.cargado && f.montoEstimado ? " · aprox. " + formatMoney(f.montoEstimado, f.moneda) : ""}</div>
+              </div>
+              {f.cargado && <div className="amount">{formatMoney(f.montoCargado, f.moneda)}</div>}
+            </div>
+          ))}
+        </div>
+      )}
       <button className="btn secondary" onClick={load}>Actualizar</button>
     </div>
   );
@@ -877,6 +898,77 @@ function AhorrosTab({ ambito }) {
   );
 }
 
+// ---------------- GASTOS FIJOS ----------------
+function GastosFijosTab({ ambito }) {
+  const [fijos, setFijos] = useState([]);
+  const [categorias, setCategorias] = useState([]);
+  const [notice, notify] = useNotice();
+  const [form, setForm] = useState({ nombre: "", categoria: "", montoEstimado: "", moneda: "ARS" });
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(() => {
+    callApi("getGastosFijos", { ambito }).then(setFijos).catch(() => {});
+    callApi("getCategorias", { ambito }).then(setCategorias).catch(() => {});
+  }, [ambito]);
+
+  useEffect(() => { load(); }, [load]);
+
+  function submit(e) {
+    e.preventDefault();
+    if (!form.nombre || !form.categoria) { notify("err", "Completá nombre y categoría."); return; }
+    setSaving(true);
+    callApi("addGastoFijo", { ...form, ambito, montoEstimado: form.montoEstimado ? Number(form.montoEstimado) : "" })
+      .then(() => { notify("ok", "Gasto fijo agregado."); setForm({ nombre: "", categoria: "", montoEstimado: "", moneda: "ARS" }); load(); })
+      .catch((e) => notify("err", e.message))
+      .finally(() => setSaving(false));
+  }
+
+  function eliminar(f) {
+    callApi("deleteGastoFijo", { id: f["ID"] })
+      .then(() => { notify("ok", "Gasto fijo eliminado."); load(); })
+      .catch((e) => notify("err", e.message));
+  }
+
+  return (
+    <div>
+      <Notice notice={notice} />
+      <form className="card" onSubmit={submit}>
+        <h3>Nuevo gasto fijo <span className="muted">· {ambito}</span></h3>
+        <div className="field"><label>Nombre</label><input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} placeholder="Ej: Alquiler, Luz, Internet..." /></div>
+        <div className="field">
+          <label>Categoría</label>
+          <input list="cat-list-fijos" value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })} placeholder="Tiene que coincidir con la categoría que usás al cargar" />
+          <datalist id="cat-list-fijos">{categorias.map((c) => <option key={c} value={c} />)}</datalist>
+        </div>
+        <div className="row2">
+          <div className="field"><label>Monto estimado (opcional)</label><input type="number" step="0.01" value={form.montoEstimado} onChange={(e) => setForm({ ...form, montoEstimado: e.target.value })} placeholder="Si varía, dejalo vacío" /></div>
+          <div className="field">
+            <label>Moneda</label>
+            <select value={form.moneda} onChange={(e) => setForm({ ...form, moneda: e.target.value })}>
+              <option>ARS</option><option>USD</option>
+            </select>
+          </div>
+        </div>
+        <button className="btn" disabled={saving}>{saving ? "Guardando..." : "Agregar gasto fijo"}</button>
+      </form>
+
+      <div className="card">
+        <h3>Tus gastos fijos <span className="muted">· {ambito}</span></h3>
+        {fijos.length === 0 && <div className="empty">Todavía no cargaste gastos fijos.</div>}
+        {fijos.map((f, i) => (
+          <div className="list-row" key={i}>
+            <div>
+              <div className="desc">{f["Nombre"]}</div>
+              <div className="meta">{f["Categoría"]} {f["Monto Estimado"] && <>· aprox. {formatMoney(f["Monto Estimado"], f["Moneda"])}</>}</div>
+            </div>
+            <ConfirmButton label="Eliminar" danger onConfirm={() => eliminar(f)} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ---------------- APP ----------------
 function App() {
   const [ambito, setAmbito] = useState("Personal");
@@ -894,6 +986,7 @@ function App() {
         {tab === "tarjetas" && <TarjetasTab ambito={ambito} />}
         {tab === "deudas" && <DeudasTab ambito={ambito} />}
         {tab === "ahorros" && <AhorrosTab ambito={ambito} />}
+        {tab === "fijos" && <GastosFijosTab ambito={ambito} />}
       </main>
       <div className="footer-note">Conectado a tu Google Sheet · Finanzas_Seba</div>
     </div>
