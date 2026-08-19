@@ -386,17 +386,42 @@ function CategoriasBlock({ label, color, data }) {
 
 function VencimientosBlock({ label, color, data }) {
   const venc = data ? data.proximosVencimientos || {} : {};
-  const items = [
-    ...(venc.cuotasTarjeta || []).map((c) => ({ desc: c["Descripción"] + " (" + c["Nro Cuota"] + "/" + c["Cant. Cuotas"] + ")", fecha: c["Fecha Vencimiento"], monto: c["Monto Cuota"], tipo: "Tarjeta" })),
+  const gruposTarjeta = agruparCuotasPorTarjeta(venc.cuotasTarjeta || []);
+  const otros = [
     ...(venc.deudasInformales || []).map((d) => ({ desc: d["Acreedor"] + " (" + d["Nro Cuota"] + "/" + d["Cant. Cuotas"] + ")", fecha: d["Fecha Vencimiento"], monto: d["Monto Cuota"], tipo: "Deuda" })),
     ...(venc.gastosPendientes || []).map((g) => ({ desc: g["Categoría"] + (g["Nota"] ? " — " + g["Nota"] : ""), fecha: g["Fecha Vencimiento"] || g["Fecha"], monto: g["Monto"], tipo: "Gasto" })),
   ].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+  const vacio = gruposTarjeta.length === 0 && otros.length === 0;
+
   return (
     <div>
       <AmbitoLabel label={label} color={color} />
-      {items.length === 0 && <div className="empty">Sin vencimientos próximos. 🎉</div>}
-      {items.map((it, i) => (
-        <div className="list-row" key={i}>
+      {vacio && <div className="empty">Sin vencimientos próximos. 🎉</div>}
+      {gruposTarjeta.map((g, gi) => (
+        <div key={"t" + gi} style={{ marginBottom: 10 }}>
+          <div className="list-row">
+            <div>
+              <div className="desc">{g.tarjeta}<span className="badge warn">Tarjeta</span></div>
+              <div className="meta">Vence {formatDate(g.fecha)}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              {g.totalARS > 0 && <div className="amount">{formatMoney(g.totalARS, "ARS")}</div>}
+              {g.totalUSD > 0 && <div className="amount">{formatMoney(g.totalUSD, "USD")}</div>}
+            </div>
+          </div>
+          <div style={{ paddingLeft: 10, borderLeft: "2px solid var(--border)" }}>
+            {g.items.map((c, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "4px 0", color: "var(--text-muted)" }}>
+                <span>{c["Descripción"]} ({c["Nro Cuota"]}/{c["Cant. Cuotas"]})</span>
+                <span>{formatMoney(c["Monto Cuota"], c["Moneda"])}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      {otros.map((it, i) => (
+        <div className="list-row" key={"o" + i}>
           <div>
             <div className="desc">{it.desc}<span className="badge warn">{it.tipo}</span></div>
             <div className="meta">Vence {formatDate(it.fecha)}</div>
@@ -734,6 +759,21 @@ function CargarTab({ ambito }) {
 }
 
 // ---------------- TARJETAS / CUOTAS ----------------
+function agruparCuotasPorTarjeta(cuotas) {
+  const grupos = {};
+  cuotas.forEach((c) => {
+    const key = c["Tarjeta"] + "|" + c["Fecha Vencimiento"];
+    if (!grupos[key]) grupos[key] = { tarjeta: c["Tarjeta"], fecha: c["Fecha Vencimiento"], totalARS: 0, totalUSD: 0, items: [] };
+    const moneda = c["Moneda"] || "ARS";
+    if (moneda === "USD") grupos[key].totalUSD += Number(c["Monto Cuota"]) || 0;
+    else grupos[key].totalARS += Number(c["Monto Cuota"]) || 0;
+    grupos[key].items.push(c);
+  });
+  return Object.values(grupos).sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+}
+
+const BLANK_COMPRA = { tarjeta: "", descripcion: "", importeTotal: "", cantCuotas: "1", fechaCompra: todayISO(), moneda: "ARS" };
+
 function TarjetasTab({ ambito }) {
   const [tarjetas, setTarjetas] = useState([]);
   const [cuotas, setCuotas] = useState([]);
@@ -743,7 +783,8 @@ function TarjetasTab({ ambito }) {
   const [editingTarjeta, setEditingTarjeta] = useState(null); // nombre original, o null
   const [savingT, setSavingT] = useState(false);
 
-  const [cForm, setCForm] = useState({ tarjeta: "", descripcion: "", importeTotal: "", cantCuotas: "1", fechaCompra: todayISO() });
+  const [cForm, setCForm] = useState(BLANK_COMPRA);
+  const [editingCompra, setEditingCompra] = useState(null); // ID Compra, o null
   const [savingC, setSavingC] = useState(false);
 
   const load = useCallback(() => {
@@ -787,10 +828,33 @@ function TarjetasTab({ ambito }) {
     e.preventDefault();
     if (!cForm.tarjeta || !cForm.importeTotal || !cForm.cantCuotas) { notify("err", "Completá tarjeta, importe y cuotas."); return; }
     setSavingC(true);
-    callApi("addCompraCuotas", { ...cForm, ambito, importeTotal: Number(cForm.importeTotal), cantCuotas: Number(cForm.cantCuotas) })
-      .then(() => { notify("ok", "Compra en cuotas cargada."); setCForm({ tarjeta: cForm.tarjeta, descripcion: "", importeTotal: "", cantCuotas: "1", fechaCompra: todayISO() }); load(); })
+    const payload = { ...cForm, ambito, importeTotal: Number(cForm.importeTotal), cantCuotas: Number(cForm.cantCuotas) };
+    const accion = editingCompra
+      ? callApi("updateCompraCuotas", { ...payload, idCompra: editingCompra })
+      : callApi("addCompraCuotas", payload);
+    accion
+      .then(() => {
+        notify("ok", editingCompra ? "Compra actualizada." : "Compra en cuotas cargada.");
+        setCForm({ ...BLANK_COMPRA, tarjeta: cForm.tarjeta });
+        setEditingCompra(null);
+        load();
+      })
       .catch((e) => notify("err", e.message))
       .finally(() => setSavingC(false));
+  }
+
+  function startEditCompra(c) {
+    setEditingCompra(c["ID Compra"]);
+    setCForm({
+      tarjeta: c["Tarjeta"], descripcion: c["Descripción"], importeTotal: String(c["Importe Total"]),
+      cantCuotas: String(c["Cant. Cuotas"]), fechaCompra: toDateInputValue(c["Fecha de Compra"]), moneda: c["Moneda"] || "ARS",
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelEditCompra() {
+    setEditingCompra(null);
+    setCForm(BLANK_COMPRA);
   }
 
   function marcarPagada(c) {
@@ -807,9 +871,11 @@ function TarjetasTab({ ambito }) {
 
   function eliminarCompra(c) {
     callApi("deleteCompraCuotas", { idCompra: c["ID Compra"] })
-      .then(() => { notify("ok", "Compra eliminada (todas sus cuotas)."); load(); })
+      .then(() => { notify("ok", "Compra eliminada (todas sus cuotas)."); if (editingCompra === c["ID Compra"]) cancelEditCompra(); load(); })
       .catch((e) => notify("err", e.message));
   }
+
+  const grupos = agruparCuotasPorTarjeta(cuotas);
 
   return (
     <div>
@@ -851,7 +917,7 @@ function TarjetasTab({ ambito }) {
       )}
 
       <form className="card" onSubmit={submitCompra}>
-        <h3>Compra en cuotas <span className="muted">· {ambito}</span></h3>
+        <h3>{editingCompra ? "Editar compra" : "Compra en cuotas"} <span className="muted">· {ambito}</span></h3>
         <div className="field">
           <label>Tarjeta</label>
           <select value={cForm.tarjeta} onChange={(e) => setCForm({ ...cForm, tarjeta: e.target.value })}>
@@ -864,25 +930,55 @@ function TarjetasTab({ ambito }) {
           <div className="field"><label>Importe total</label><input type="number" step="0.01" value={cForm.importeTotal} onChange={(e) => setCForm({ ...cForm, importeTotal: e.target.value })} /></div>
           <div className="field"><label>Cant. cuotas</label><input type="number" min="1" value={cForm.cantCuotas} onChange={(e) => setCForm({ ...cForm, cantCuotas: e.target.value })} /></div>
         </div>
-        <div className="field"><label>Fecha de compra</label><input type="date" value={cForm.fechaCompra} onChange={(e) => setCForm({ ...cForm, fechaCompra: e.target.value })} /></div>
-        <button className="btn" disabled={savingC}>{savingC ? "Guardando..." : "Cargar compra"}</button>
+        <div className="row2">
+          <div className="field"><label>Moneda</label>
+            <select value={cForm.moneda} onChange={(e) => setCForm({ ...cForm, moneda: e.target.value })}>
+              <option>ARS</option><option>USD</option>
+            </select>
+          </div>
+          <div className="field"><label>Fecha de compra</label><input type="date" value={cForm.fechaCompra} onChange={(e) => setCForm({ ...cForm, fechaCompra: e.target.value })} /></div>
+        </div>
+        {editingCompra ? (
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn" disabled={savingC}>{savingC ? "Guardando..." : "Guardar cambios"}</button>
+            <button type="button" className="btn secondary" onClick={cancelEditCompra}>Cancelar</button>
+          </div>
+        ) : (
+          <button className="btn" disabled={savingC}>{savingC ? "Guardando..." : "Cargar compra"}</button>
+        )}
       </form>
 
       <div className="card">
         <h3>Cuotas pendientes <span className="muted">· {ambito}</span></h3>
-        {cuotas.length === 0 && <div className="empty">No tenés cuotas pendientes.</div>}
-        {cuotas.map((c, i) => (
-          <div className="list-row" key={i}>
-            <div>
-              <div className="desc">{c["Descripción"]} <span className="badge">{c["Nro Cuota"]}/{c["Cant. Cuotas"]}</span></div>
-              <div className="meta">{c["Tarjeta"]} · vence {formatDate(c["Fecha Vencimiento"])}</div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div className="amount">{formatMoney(c["Monto Cuota"])}</div>
-              <div style={{ display: "flex", gap: 6, marginTop: 4, justifyContent: "flex-end" }}>
-                <button className="btn-sm secondary" onClick={() => marcarPagada(c)}>Marcar pagada</button>
-                <ConfirmButton label="Eliminar compra" danger onConfirm={() => eliminarCompra(c)} />
+        {grupos.length === 0 && <div className="empty">No tenés cuotas pendientes.</div>}
+        {grupos.map((g, gi) => (
+          <div key={gi} style={{ marginBottom: 16, paddingBottom: 12, borderBottom: gi < grupos.length - 1 ? "1px solid var(--border)" : "none" }}>
+            <div className="list-row" style={{ borderTop: "none", padding: "0 0 6px" }}>
+              <div>
+                <div className="desc">{g.tarjeta}</div>
+                <div className="meta">Vence {formatDate(g.fecha)}</div>
               </div>
+              <div style={{ textAlign: "right" }}>
+                {g.totalARS > 0 && <div className="amount">{formatMoney(g.totalARS, "ARS")}</div>}
+                {g.totalUSD > 0 && <div className="amount">{formatMoney(g.totalUSD, "USD")}</div>}
+              </div>
+            </div>
+            <div style={{ paddingLeft: 10, borderLeft: "2px solid var(--border)", marginTop: 6 }}>
+              {g.items.map((c, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "6px 0", gap: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{c["Descripción"]} <span className="badge">{c["Nro Cuota"]}/{c["Cant. Cuotas"]}</span></div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>{formatMoney(c["Monto Cuota"], c["Moneda"])}</div>
+                    <div style={{ display: "flex", gap: 5, marginTop: 4, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                      <button className="btn-sm secondary" onClick={() => marcarPagada(c)}>Pagada</button>
+                      <button type="button" className="btn-sm secondary" onClick={() => startEditCompra(c)}>Editar</button>
+                      <ConfirmButton label="Eliminar" danger onConfirm={() => eliminarCompra(c)} />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         ))}
