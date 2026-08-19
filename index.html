@@ -411,12 +411,15 @@ function VencimientosBlock({ label, color, data }) {
             </div>
           </div>
           <div style={{ paddingLeft: 10, borderLeft: "2px solid var(--border)" }}>
-            {g.items.map((c, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "4px 0", color: "var(--text-muted)" }}>
-                <span>{c["Descripción"]} ({c["Nro Cuota"]}/{c["Cant. Cuotas"]})</span>
-                <span>{formatMoney(c["Monto Cuota"], c["Moneda"])}</span>
-              </div>
-            ))}
+            {g.items.map((c, i) => {
+              const esReintegro = c["Tipo"] === "Reintegro";
+              return (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "4px 0", color: esReintegro ? "var(--success)" : "var(--text-muted)" }}>
+                  <span>{c["Descripción"]}{esReintegro ? " (reintegro)" : " (" + c["Nro Cuota"] + "/" + c["Cant. Cuotas"] + ")"}</span>
+                  <span>{esReintegro ? "-" : ""}{formatMoney(c["Monto Cuota"], c["Moneda"])}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       ))}
@@ -765,8 +768,10 @@ function agruparCuotasPorTarjeta(cuotas) {
     const key = c["Tarjeta"] + "|" + c["Fecha Vencimiento"];
     if (!grupos[key]) grupos[key] = { tarjeta: c["Tarjeta"], fecha: c["Fecha Vencimiento"], totalARS: 0, totalUSD: 0, items: [] };
     const moneda = c["Moneda"] || "ARS";
-    if (moneda === "USD") grupos[key].totalUSD += Number(c["Monto Cuota"]) || 0;
-    else grupos[key].totalARS += Number(c["Monto Cuota"]) || 0;
+    const signo = c["Tipo"] === "Reintegro" ? -1 : 1;
+    const monto = (Number(c["Monto Cuota"]) || 0) * signo;
+    if (moneda === "USD") grupos[key].totalUSD += monto;
+    else grupos[key].totalARS += monto;
     grupos[key].items.push(c);
   });
   return Object.values(grupos).sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
@@ -875,6 +880,19 @@ function TarjetasTab({ ambito }) {
       .catch((e) => notify("err", e.message));
   }
 
+  const [rForm, setRForm] = useState({ tarjeta: "", descripcion: "", monto: "", moneda: "ARS", fecha: todayISO() });
+  const [savingR, setSavingR] = useState(false);
+
+  function submitAjuste(e) {
+    e.preventDefault();
+    if (!rForm.tarjeta || !rForm.monto) { notify("err", "Completá tarjeta e importe."); return; }
+    setSavingR(true);
+    callApi("addAjusteTarjeta", { ...rForm, ambito, monto: Number(rForm.monto) })
+      .then(() => { notify("ok", "Reintegro cargado."); setRForm({ tarjeta: rForm.tarjeta, descripcion: "", monto: "", moneda: "ARS", fecha: todayISO() }); load(); })
+      .catch((e) => notify("err", e.message))
+      .finally(() => setSavingR(false));
+  }
+
   const grupos = agruparCuotasPorTarjeta(cuotas);
 
   return (
@@ -948,6 +966,28 @@ function TarjetasTab({ ambito }) {
         )}
       </form>
 
+      <form className="card" onSubmit={submitAjuste}>
+        <h3>Reintegro / descuento <span className="muted">· {ambito}</span></h3>
+        <div className="field">
+          <label>Tarjeta</label>
+          <select value={rForm.tarjeta} onChange={(e) => setRForm({ ...rForm, tarjeta: e.target.value })}>
+            <option value="">Elegir tarjeta...</option>
+            {tarjetas.map((t) => <option key={t["Nombre"]} value={t["Nombre"]}>{t["Nombre"]}</option>)}
+          </select>
+        </div>
+        <div className="field"><label>Descripción</label><input value={rForm.descripcion} onChange={(e) => setRForm({ ...rForm, descripcion: e.target.value })} placeholder="Ej: Devolución de ganancias" /></div>
+        <div className="row2">
+          <div className="field"><label>Importe (en positivo)</label><input type="number" step="0.01" value={rForm.monto} onChange={(e) => setRForm({ ...rForm, monto: e.target.value })} /></div>
+          <div className="field"><label>Moneda</label>
+            <select value={rForm.moneda} onChange={(e) => setRForm({ ...rForm, moneda: e.target.value })}>
+              <option>ARS</option><option>USD</option>
+            </select>
+          </div>
+        </div>
+        <div className="field"><label>Fecha</label><input type="date" value={rForm.fecha} onChange={(e) => setRForm({ ...rForm, fecha: e.target.value })} /></div>
+        <button className="btn secondary" disabled={savingR}>{savingR ? "Guardando..." : "Cargar reintegro"}</button>
+      </form>
+
       <div className="card">
         <h3>Cuotas pendientes <span className="muted">· {ambito}</span></h3>
         {grupos.length === 0 && <div className="empty">No tenés cuotas pendientes.</div>}
@@ -964,21 +1004,29 @@ function TarjetasTab({ ambito }) {
               </div>
             </div>
             <div style={{ paddingLeft: 10, borderLeft: "2px solid var(--border)", marginTop: 6 }}>
-              {g.items.map((c, i) => (
-                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "6px 0", gap: 8 }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{c["Descripción"]} <span className="badge">{c["Nro Cuota"]}/{c["Cant. Cuotas"]}</span></div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 13, fontWeight: 700 }}>{formatMoney(c["Monto Cuota"], c["Moneda"])}</div>
-                    <div style={{ display: "flex", gap: 5, marginTop: 4, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                      <button className="btn-sm secondary" onClick={() => marcarPagada(c)}>Pagada</button>
-                      <button type="button" className="btn-sm secondary" onClick={() => startEditCompra(c)}>Editar</button>
-                      <ConfirmButton label="Eliminar" danger onConfirm={() => eliminarCompra(c)} />
+              {g.items.map((c, i) => {
+                const esReintegro = c["Tipo"] === "Reintegro";
+                return (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "6px 0", gap: 8 }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>
+                        {c["Descripción"]}
+                        {esReintegro ? <span className="badge" style={{ background: "var(--success-soft)", color: "var(--success)" }}>Reintegro</span> : <span className="badge">{c["Nro Cuota"]}/{c["Cant. Cuotas"]}</span>}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: esReintegro ? "var(--success)" : "var(--text)" }}>
+                        {esReintegro ? "-" : ""}{formatMoney(c["Monto Cuota"], c["Moneda"])}
+                      </div>
+                      <div style={{ display: "flex", gap: 5, marginTop: 4, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                        {!esReintegro && <button className="btn-sm secondary" onClick={() => marcarPagada(c)}>Pagada</button>}
+                        {!esReintegro && <button type="button" className="btn-sm secondary" onClick={() => startEditCompra(c)}>Editar</button>}
+                        <ConfirmButton label="Eliminar" danger onConfirm={() => eliminarCompra(c)} />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ))}
