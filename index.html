@@ -150,7 +150,7 @@ const { useState, useEffect, useCallback } = React;
 // Reemplazá esta URL si volvés a implementar el backend y
 // Google te da una URL nueva.
 // ==========================================================
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlsnm5QbYBrXDmiMu-Quc7iCqoHOHaPV3ldlQgWgwfKlrP0vLDq4a113pIpxUgcD4ArA/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz2tECuAWA6QDKmO8iVJ0lL1Lxq3fCW4GPE-W0oCXX4o6mKGZlyYcE2HL9nFlZ5FkpQpw/exec";
 
 let CURRENT_PIN = "";
 
@@ -236,7 +236,7 @@ function LockScreen({ onUnlock }) {
     CURRENT_PIN = pin;
     callApi("getTarjetas", {})
       .then(() => onUnlock())
-      .catch(() => { setError("Código incorrecto."); CURRENT_PIN = ""; })
+      .catch((err) => { setError(err.message || "Error de conexión."); CURRENT_PIN = ""; })
       .finally(() => setChecking(false));
   }
 
