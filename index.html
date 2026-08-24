@@ -155,11 +155,11 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz2tECuAWA6QDKm
 let CURRENT_PIN = "";
 
 async function callApi(action, payload = {}) {
-  const url = APPS_SCRIPT_URL
-    + "?action=" + encodeURIComponent(action)
-    + "&payload=" + encodeURIComponent(JSON.stringify(payload))
-    + "&pin=" + encodeURIComponent(CURRENT_PIN);
-  const res = await fetch(url);
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action, payload, pin: CURRENT_PIN }),
+  });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || "Error desconocido");
   return json.data;
@@ -489,11 +489,12 @@ function DashboardTab() {
 
   const load = useCallback(() => {
     setLoading(true);
-    Promise.all([
-      callApi("getDashboard", { ambito: "Personal" }),
-      callApi("getDashboard", { ambito: "Atiexa" }),
-    ])
-      .then(([p, a]) => { setDPersonal(p); setDAtiexa(a); })
+    callApi("getDashboard", { ambito: "Personal" })
+      .then((p) => {
+        setDPersonal(p);
+        return callApi("getDashboard", { ambito: "Atiexa" });
+      })
+      .then((a) => setDAtiexa(a))
       .catch((e) => notify("err", e.message))
       .finally(() => setLoading(false));
   }, []);
