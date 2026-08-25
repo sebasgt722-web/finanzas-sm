@@ -561,14 +561,19 @@ function CargarTab({ ambito }) {
   const [todasTx, setTodasTx] = useState([]);
   const [filtro, setFiltro] = useState("todos");
   const [saving, setSaving] = useState(false);
+  const [cargandoLista, setCargandoLista] = useState(true);
   const [notice, notify] = useNotice();
 
   const loadAux = useCallback(() => {
-    callApi("getCategorias", { ambito }).then(setCategorias).catch(() => {});
-    callApi("getTarjetas", {}).then((tj) => setMedios(["Efectivo", "Transferencia", "Débito", ...tj.map((t) => t["Nombre"])])).catch(() => {});
-    callApi("getTransacciones", { ambito }).then((rows) => {
-      setTodasTx([...rows].sort((a, b) => new Date(b["Fecha"]) - new Date(a["Fecha"])));
-    }).catch(() => {});
+    callApi("getCategorias", { ambito }).then(setCategorias).catch((e) => notify("err", "Categorías: " + e.message));
+    callApi("getTarjetas", {}).then((tj) => setMedios(["Efectivo", "Transferencia", "Débito", ...tj.map((t) => t["Nombre"])])).catch((e) => notify("err", "Tarjetas: " + e.message));
+    setCargandoLista(true);
+    callApi("getTransacciones", { ambito })
+      .then((rows) => {
+        setTodasTx([...rows].sort((a, b) => new Date(b["Fecha"]) - new Date(a["Fecha"])));
+      })
+      .catch((e) => notify("err", "Movimientos: " + e.message))
+      .finally(() => setCargandoLista(false));
   }, [ambito]);
 
   useEffect(() => { loadAux(); }, [loadAux]);
@@ -716,8 +721,9 @@ function CargarTab({ ambito }) {
             >{label}</button>
           ))}
         </div>
-        {recientes.length === 0 && <div className="empty">No hay movimientos para este filtro.</div>}
-        {recientes.map((r, i) => (
+        {cargandoLista && <div className="center"><span className="spinner"></span></div>}
+        {!cargandoLista && recientes.length === 0 && <div className="empty">No hay movimientos para este filtro.</div>}
+        {!cargandoLista && recientes.map((r, i) => (
           <div className="list-row" key={i}>
             <div>
               <div className="desc">{r["Categoría"]}<span className="badge">{r["Tipo"]}</span></div>
