@@ -442,17 +442,23 @@ function AhorrosBlock({ label, color, data }) {
     <div>
       <AmbitoLabel label={label} color={color} />
       {ahorros.length === 0 && <div className="empty">Sin ahorros cargados.</div>}
-      {ahorros.map((a, i) => (
-        <div className="list-row" key={i}>
-          <div>
-            <div className="desc">{a["Tipo"]}<span className="badge">{a["Moneda"]}</span></div>
-            <div className="meta">
-              Capital {formatMoney(a["Capital"], a["Moneda"])}
-              {a["Tipo"] === "FCI" && <> · Rinde {formatMoney(a["Rendimiento Acumulado"], a["Moneda"])} ({a["Días Transcurridos"]} días)</>}
+      {ahorros.map((a, i) => {
+        const esFci = a["Tipo"] === "FCI";
+        const rendimiento = Number(a["Rendimiento Acumulado"]) || 0;
+        const total = Number(a["Capital"]) + (esFci ? rendimiento : 0);
+        return (
+          <div className="list-row" key={i}>
+            <div>
+              <div className="desc">{a["Tipo"]}<span className="badge">{a["Moneda"]}</span></div>
+              <div className="meta">
+                Capital {formatMoney(a["Capital"], a["Moneda"])}
+                {esFci && <> · Rinde {formatMoney(rendimiento, a["Moneda"])} ({a["Días Transcurridos"]} días)</>}
+              </div>
             </div>
+            <div className="amount">{formatMoney(total, a["Moneda"])}</div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -1142,40 +1148,67 @@ function DeudasTab({ ambito }) {
 }
 
 // ---------------- AHORROS E INVERSIONES ----------------
+const BLANK_AHORRO = { tipo: "Efectivo", capital: "", moneda: "ARS", fechaCarga: todayISO(), tasaTNA: "" };
+
 function AhorrosTab({ ambito }) {
   const [ahorros, setAhorros] = useState([]);
   const [notice, notify] = useNotice();
-  const [form, setForm] = useState({ tipo: "Efectivo", capital: "", moneda: "ARS", fechaCarga: todayISO(), tasaTNA: "" });
+  const [form, setForm] = useState(BLANK_AHORRO);
+  const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
     callApi("getAhorrosInversiones", { ambito }).then(setAhorros).catch(() => {});
   }, [ambito]);
 
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { setEditingId(null); setForm(BLANK_AHORRO); }, [ambito]);
+
   function eliminar(a) {
     callApi("deleteAhorroInversion", { id: a["ID"] })
-      .then(() => { notify("ok", "Registro eliminado."); load(); })
+      .then(() => { notify("ok", "Registro eliminado."); if (editingId === a["ID"]) cancelEdit(); load(); })
       .catch((e) => notify("err", e.message));
   }
-
-  useEffect(() => { load(); }, [load]);
 
   function submit(e) {
     e.preventDefault();
     if (!form.capital) { notify("err", "Completá el capital."); return; }
     if (form.tipo === "FCI" && !form.tasaTNA) { notify("err", "Completá la tasa TNA del fondo."); return; }
     setSaving(true);
-    callApi("addAhorroInversion", { ...form, ambito, capital: Number(form.capital), tasaTNA: Number(form.tasaTNA || 0) })
-      .then(() => { notify("ok", "Ahorro/inversión cargado."); setForm({ tipo: "Efectivo", capital: "", moneda: "ARS", fechaCarga: todayISO(), tasaTNA: "" }); load(); })
+    const payload = { ...form, ambito, capital: Number(form.capital), tasaTNA: Number(form.tasaTNA || 0) };
+    const accion = editingId
+      ? callApi("updateAhorroInversion", { ...payload, id: editingId })
+      : callApi("addAhorroInversion", payload);
+    accion
+      .then(() => {
+        notify("ok", editingId ? "Ahorro/inversión actualizado." : "Ahorro/inversión cargado.");
+        setForm(BLANK_AHORRO);
+        setEditingId(null);
+        load();
+      })
       .catch((e) => notify("err", e.message))
       .finally(() => setSaving(false));
+  }
+
+  function startEdit(a) {
+    setEditingId(a["ID"]);
+    setForm({
+      tipo: a["Tipo"], capital: String(a["Capital"]), moneda: a["Moneda"],
+      fechaCarga: toDateInputValue(a["Fecha de Carga"]), tasaTNA: a["Tasa TNA (%)"] && a["Tasa TNA (%)"] !== "-" ? String(a["Tasa TNA (%)"]) : "",
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setForm(BLANK_AHORRO);
   }
 
   return (
     <div>
       <Notice notice={notice} />
       <form className="card" onSubmit={submit}>
-        <h3>Nuevo ahorro / inversión <span className="muted">· {ambito}</span></h3>
+        <h3>{editingId ? "Editar ahorro / inversión" : "Nuevo ahorro / inversión"} <span className="muted">· {ambito}</span></h3>
         <div className="row2">
           <div className="field">
             <label>Tipo</label>
@@ -1197,28 +1230,43 @@ function AhorrosTab({ ambito }) {
         {form.tipo === "FCI" && (
           <div className="field"><label>Tasa TNA (%)</label><input type="number" step="0.01" value={form.tasaTNA} onChange={(e) => setForm({ ...form, tasaTNA: e.target.value })} placeholder="Ej: 38" /></div>
         )}
-        <button className="btn" disabled={saving}>{saving ? "Guardando..." : "Guardar"}</button>
+        {editingId ? (
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn" disabled={saving}>{saving ? "Guardando..." : "Guardar cambios"}</button>
+            <button type="button" className="btn secondary" onClick={cancelEdit}>Cancelar</button>
+          </div>
+        ) : (
+          <button className="btn" disabled={saving}>{saving ? "Guardando..." : "Guardar"}</button>
+        )}
       </form>
 
       <div className="card">
         <h3>Tus ahorros e inversiones <span className="muted">· {ambito}</span></h3>
         {ahorros.length === 0 && <div className="empty">Todavía no cargaste nada acá.</div>}
-        {ahorros.map((a, i) => (
-          <div className="list-row" key={i}>
-            <div>
-              <div className="desc">{a["Tipo"]}<span className="badge">{a["Moneda"]}</span></div>
-              <div className="meta">
-                Cargado {formatDate(a["Fecha de Carga"])}
-                {a["Tipo"] === "FCI" && <> · TNA {a["Tasa TNA (%)"]}% · {a["Días Transcurridos"]} días</>}
+        {ahorros.map((a, i) => {
+          const esFci = a["Tipo"] === "FCI";
+          const rendimiento = Number(a["Rendimiento Acumulado"]) || 0;
+          const total = Number(a["Capital"]) + (esFci ? rendimiento : 0);
+          return (
+            <div className="list-row" key={i}>
+              <div>
+                <div className="desc">{a["Tipo"]}<span className="badge">{a["Moneda"]}</span></div>
+                <div className="meta">
+                  Capital {formatMoney(a["Capital"], a["Moneda"])} · Cargado {formatDate(a["Fecha de Carga"])}
+                  {esFci && <> · TNA {a["Tasa TNA (%)"]}% · {a["Días Transcurridos"]} días</>}
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div className="amount">{formatMoney(total, a["Moneda"])}</div>
+                {esFci && <div className="meta" style={{ color: "var(--success)", fontWeight: 700 }}>+{formatMoney(rendimiento, a["Moneda"])}</div>}
+                <div style={{ display: "flex", gap: 6, marginTop: 4, justifyContent: "flex-end" }}>
+                  <button type="button" className="btn-sm secondary" onClick={() => startEdit(a)}>Editar</button>
+                  <ConfirmButton label="Eliminar" danger onConfirm={() => eliminar(a)} />
+                </div>
               </div>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <div className="amount">{formatMoney(a["Capital"], a["Moneda"])}</div>
-              {a["Tipo"] === "FCI" && <div className="meta" style={{ color: "var(--success)", fontWeight: 700 }}>+{formatMoney(a["Rendimiento Acumulado"], a["Moneda"])}</div>}
-              <div style={{ marginTop: 4 }}><ConfirmButton label="Eliminar" danger onConfirm={() => eliminar(a)} /></div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
