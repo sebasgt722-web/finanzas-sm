@@ -457,9 +457,17 @@ function AhorrosBlock({ label, color, data }) {
   );
 }
 
-function GastosFijosBlock({ label, color, data }) {
+function GastosFijosBlock({ label, color, data, onChange }) {
   const fijos = data ? data.gastosFijosDelMes || [] : [];
   if (fijos.length === 0) return null;
+
+  function marcar(f) {
+    callApi("marcarGastoFijoPagado", { idGastoFijo: f.id, ambito: f.ambito }).then(onChange).catch(() => {});
+  }
+  function desmarcar(f) {
+    callApi("desmarcarGastoFijoPagado", { idGastoFijo: f.id, ambito: f.ambito }).then(onChange).catch(() => {});
+  }
+
   return (
     <div>
       <AmbitoLabel label={label} color={color} />
@@ -472,9 +480,17 @@ function GastosFijosBlock({ label, color, data }) {
                 {f.cargado ? "Cargado" : "Pendiente"}
               </span>
             </div>
-            <div className="meta">{f.categoria}{!f.cargado && f.montoEstimado ? " · aprox. " + formatMoney(f.montoEstimado, f.moneda) : ""}</div>
+            <div className="meta">
+              {f.categoria}
+              {!f.cargado && f.montoEstimado ? " · aprox. " + formatMoney(f.montoEstimado, f.moneda) : ""}
+              {f.montoCargado == null && f.marcadoManual ? " · marcado a mano" : ""}
+            </div>
           </div>
-          {f.cargado && <div className="amount">{formatMoney(f.montoCargado, f.moneda)}</div>}
+          <div style={{ textAlign: "right" }}>
+            {f.montoCargado != null && <div className="amount">{formatMoney(f.montoCargado, f.moneda)}</div>}
+            {f.montoCargado == null && f.marcadoManual && <button type="button" className="btn-sm secondary" onClick={() => desmarcar(f)}>Desmarcar</button>}
+            {!f.cargado && <button type="button" className="btn-sm secondary" onClick={() => marcar(f)}>Marcar pagado</button>}
+          </div>
         </div>
       ))}
     </div>
@@ -539,9 +555,9 @@ function DashboardTab() {
       {((dPersonal.gastosFijosDelMes && dPersonal.gastosFijosDelMes.length > 0) || (dAtiexa.gastosFijosDelMes && dAtiexa.gastosFijosDelMes.length > 0)) && (
         <div className="card">
           <h3>Gastos fijos ({nombreMesActual()})</h3>
-          <GastosFijosBlock label="Personal" color={COLOR_PERSONAL} data={dPersonal} />
+          <GastosFijosBlock label="Personal" color={COLOR_PERSONAL} data={dPersonal} onChange={load} />
           {dPersonal.gastosFijosDelMes && dPersonal.gastosFijosDelMes.length > 0 && dAtiexa.gastosFijosDelMes && dAtiexa.gastosFijosDelMes.length > 0 && <Divider />}
-          <GastosFijosBlock label="Atiexa" color={COLOR_ATIEXA} data={dAtiexa} />
+          <GastosFijosBlock label="Atiexa" color={COLOR_ATIEXA} data={dAtiexa} onChange={load} />
         </div>
       )}
 
@@ -1026,6 +1042,7 @@ function TarjetasTab({ ambito }) {
                         {esReintegro ? "-" : ""}{formatMoney(c["Monto Cuota"], c["Moneda"])}
                       </div>
                       <div style={{ display: "flex", gap: 5, marginTop: 4, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                        {esReintegro && <button className="btn-sm secondary" onClick={() => marcarPagada(c)}>Ejecutado</button>}
                         {!esReintegro && <button className="btn-sm secondary" onClick={() => marcarPagada(c)}>Pagada</button>}
                         {!esReintegro && <button type="button" className="btn-sm secondary" onClick={() => startEditCompra(c)}>Editar</button>}
                         <ConfirmButton label="Eliminar" danger onConfirm={() => eliminarCompra(c)} />
