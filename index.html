@@ -1208,11 +1208,14 @@ function AhorrosTab({ ambito }) {
 }
 
 // ---------------- GASTOS FIJOS ----------------
+const BLANK_GASTO_FIJO = { nombre: "", categoria: "", montoEstimado: "", moneda: "ARS" };
+
 function GastosFijosTab({ ambito }) {
   const [fijos, setFijos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [notice, notify] = useNotice();
-  const [form, setForm] = useState({ nombre: "", categoria: "", montoEstimado: "", moneda: "ARS" });
+  const [form, setForm] = useState(BLANK_GASTO_FIJO);
+  const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
@@ -1221,20 +1224,44 @@ function GastosFijosTab({ ambito }) {
   }, [ambito]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { setEditingId(null); setForm(BLANK_GASTO_FIJO); }, [ambito]);
 
   function submit(e) {
     e.preventDefault();
     if (!form.nombre || !form.categoria) { notify("err", "Completá nombre y categoría."); return; }
     setSaving(true);
-    callApi("addGastoFijo", { ...form, ambito, montoEstimado: form.montoEstimado ? Number(form.montoEstimado) : "" })
-      .then(() => { notify("ok", "Gasto fijo agregado."); setForm({ nombre: "", categoria: "", montoEstimado: "", moneda: "ARS" }); load(); })
+    const payload = { ...form, ambito, montoEstimado: form.montoEstimado ? Number(form.montoEstimado) : "" };
+    const accion = editingId
+      ? callApi("updateGastoFijo", { ...payload, id: editingId })
+      : callApi("addGastoFijo", payload);
+    accion
+      .then(() => {
+        notify("ok", editingId ? "Gasto fijo actualizado." : "Gasto fijo agregado.");
+        setForm(BLANK_GASTO_FIJO);
+        setEditingId(null);
+        load();
+      })
       .catch((e) => notify("err", e.message))
       .finally(() => setSaving(false));
   }
 
+  function startEdit(f) {
+    setEditingId(f["ID"]);
+    setForm({
+      nombre: f["Nombre"], categoria: f["Categoría"],
+      montoEstimado: f["Monto Estimado"] ? String(f["Monto Estimado"]) : "", moneda: f["Moneda"] || "ARS",
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setForm(BLANK_GASTO_FIJO);
+  }
+
   function eliminar(f) {
     callApi("deleteGastoFijo", { id: f["ID"] })
-      .then(() => { notify("ok", "Gasto fijo eliminado."); load(); })
+      .then(() => { notify("ok", "Gasto fijo eliminado."); if (editingId === f["ID"]) cancelEdit(); load(); })
       .catch((e) => notify("err", e.message));
   }
 
@@ -1242,7 +1269,7 @@ function GastosFijosTab({ ambito }) {
     <div>
       <Notice notice={notice} />
       <form className="card" onSubmit={submit}>
-        <h3>Nuevo gasto fijo <span className="muted">· {ambito}</span></h3>
+        <h3>{editingId ? "Editar gasto fijo" : "Nuevo gasto fijo"} <span className="muted">· {ambito}</span></h3>
         <div className="field"><label>Nombre</label><input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} placeholder="Ej: Alquiler, Luz, Internet..." /></div>
         <div className="field">
           <label>Categoría</label>
@@ -1258,7 +1285,14 @@ function GastosFijosTab({ ambito }) {
             </select>
           </div>
         </div>
-        <button className="btn" disabled={saving}>{saving ? "Guardando..." : "Agregar gasto fijo"}</button>
+        {editingId ? (
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn" disabled={saving}>{saving ? "Guardando..." : "Guardar cambios"}</button>
+            <button type="button" className="btn secondary" onClick={cancelEdit}>Cancelar</button>
+          </div>
+        ) : (
+          <button className="btn" disabled={saving}>{saving ? "Guardando..." : "Agregar gasto fijo"}</button>
+        )}
       </form>
 
       <div className="card">
@@ -1270,7 +1304,10 @@ function GastosFijosTab({ ambito }) {
               <div className="desc">{f["Nombre"]}</div>
               <div className="meta">{f["Categoría"]} {f["Monto Estimado"] && <>· aprox. {formatMoney(f["Monto Estimado"], f["Moneda"])}</>}</div>
             </div>
-            <ConfirmButton label="Eliminar" danger onConfirm={() => eliminar(f)} />
+            <div style={{ display: "flex", gap: 6 }}>
+              <button type="button" className="btn-sm secondary" onClick={() => startEdit(f)}>Editar</button>
+              <ConfirmButton label="Eliminar" danger onConfirm={() => eliminar(f)} />
+            </div>
           </div>
         ))}
       </div>
