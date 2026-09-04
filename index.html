@@ -192,6 +192,10 @@ function toDateInputValue(val) {
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 function nombreMesActual() { return MESES[new Date().getMonth()]; }
+function nombreMesDePeriodo(periodoStr) {
+  const [anioStr, mesStr] = periodoStr.split("-");
+  return MESES[Number(mesStr) - 1] + " " + anioStr;
+}
 
 // Botón que pide confirmación en el lugar, sin usar alert()/confirm() del navegador
 function ConfirmButton({ label, onConfirm, danger }) {
@@ -375,10 +379,26 @@ function ResumenBlock({ label, color, data }) {
 
 function CategoriasBlock({ label, color, data }) {
   const entries = data ? Object.entries(data.gastosPorCategoria || {}).sort((a, b) => b[1] - a[1]) : [];
+  const totales = {};
+  entries.forEach(([k, v]) => {
+    const m = k.match(/\(([A-Z]{3})\)\s*$/);
+    const moneda = m ? m[1] : "ARS";
+    totales[moneda] = (totales[moneda] || 0) + v;
+  });
   return (
     <div>
       <AmbitoLabel label={label} color={color} />
-      {entries.length === 0 && <div className="empty">Sin gastos este mes.</div>}
+      {entries.length === 0 && <div className="empty">Sin gastos en este período.</div>}
+      {entries.length > 0 && (
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+          {Object.entries(totales).map(([m, v]) => (
+            <div key={m} style={{ background: color + "18", borderRadius: 8, padding: "6px 12px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color, textTransform: "uppercase", letterSpacing: ".03em" }}>Total {m}</div>
+              <div style={{ fontSize: 17, fontWeight: 800 }}>{formatMoney(v, m)}</div>
+            </div>
+          ))}
+        </div>
+      )}
       {entries.length > 0 && <PieChart data={entries.map(([k, v]) => ({ label: k, value: v }))} />}
     </div>
   );
@@ -463,15 +483,15 @@ function AhorrosBlock({ label, color, data }) {
   );
 }
 
-function GastosFijosBlock({ label, color, data, onChange }) {
+function GastosFijosBlock({ label, color, data, onChange, mes }) {
   const fijos = data ? data.gastosFijosDelMes || [] : [];
   if (fijos.length === 0) return null;
 
   function marcar(f) {
-    callApi("marcarGastoFijoPagado", { idGastoFijo: f.id, ambito: f.ambito }).then(onChange).catch(() => {});
+    callApi("marcarGastoFijoPagado", { idGastoFijo: f.id, ambito: f.ambito, mes }).then(onChange).catch(() => {});
   }
   function desmarcar(f) {
-    callApi("desmarcarGastoFijoPagado", { idGastoFijo: f.id, ambito: f.ambito }).then(onChange).catch(() => {});
+    callApi("desmarcarGastoFijoPagado", { idGastoFijo: f.id, ambito: f.ambito, mes }).then(onChange).catch(() => {});
   }
 
   return (
@@ -504,6 +524,7 @@ function GastosFijosBlock({ label, color, data, onChange }) {
 }
 
 function DashboardTab() {
+  const [periodo, setPeriodo] = useState(todayISO().slice(0, 7));
   const [dPersonal, setDPersonal] = useState(null);
   const [dAtiexa, setDAtiexa] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -511,63 +532,80 @@ function DashboardTab() {
 
   const load = useCallback(() => {
     setLoading(true);
-    callApi("getDashboard", { ambito: "Personal" })
+    const [anio, mes] = periodo.split("-").map(Number);
+    callApi("getDashboard", { ambito: "Personal", anio, mes })
       .then((p) => {
         setDPersonal(p);
-        return callApi("getDashboard", { ambito: "Atiexa" });
+        return callApi("getDashboard", { ambito: "Atiexa", anio, mes });
       })
       .then((a) => setDAtiexa(a))
       .catch((e) => notify("err", e.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [periodo]);
 
   useEffect(() => { load(); }, [load]);
 
-  if (loading) return <div className="center"><span className="spinner"></span></div>;
-  if (!dPersonal || !dAtiexa) return null;
+  const tituloMes = nombreMesDePeriodo(periodo);
+  const esMesActual = periodo === todayISO().slice(0, 7);
 
   return (
     <div>
       <Notice notice={notice} />
 
       <div className="card">
-        <h3>Resumen del mes ({nombreMesActual()})</h3>
-        <ResumenBlock label="Personal" color={COLOR_PERSONAL} data={dPersonal} />
-        <Divider />
-        <ResumenBlock label="Atiexa" color={COLOR_ATIEXA} data={dAtiexa} />
-      </div>
-
-      <div className="card">
-        <h3>Gastos por categoría ({nombreMesActual()})</h3>
-        <CategoriasBlock label="Personal" color={COLOR_PERSONAL} data={dPersonal} />
-        <Divider />
-        <CategoriasBlock label="Atiexa" color={COLOR_ATIEXA} data={dAtiexa} />
-      </div>
-
-      <div className="card">
-        <h3>Próximos vencimientos (30 días)</h3>
-        <VencimientosBlock label="Personal" color={COLOR_PERSONAL} data={dPersonal} />
-        <Divider />
-        <VencimientosBlock label="Atiexa" color={COLOR_ATIEXA} data={dAtiexa} />
-      </div>
-
-      <div className="card">
-        <h3>Ahorros e inversiones</h3>
-        <AhorrosBlock label="Personal" color={COLOR_PERSONAL} data={dPersonal} />
-        <Divider />
-        <AhorrosBlock label="Atiexa" color={COLOR_ATIEXA} data={dAtiexa} />
-      </div>
-
-      {((dPersonal.gastosFijosDelMes && dPersonal.gastosFijosDelMes.length > 0) || (dAtiexa.gastosFijosDelMes && dAtiexa.gastosFijosDelMes.length > 0)) && (
-        <div className="card">
-          <h3>Gastos fijos ({nombreMesActual()})</h3>
-          <GastosFijosBlock label="Personal" color={COLOR_PERSONAL} data={dPersonal} onChange={load} />
-          {dPersonal.gastosFijosDelMes && dPersonal.gastosFijosDelMes.length > 0 && dAtiexa.gastosFijosDelMes && dAtiexa.gastosFijosDelMes.length > 0 && <Divider />}
-          <GastosFijosBlock label="Atiexa" color={COLOR_ATIEXA} data={dAtiexa} onChange={load} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <h3 style={{ margin: 0 }}>Período</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input type="month" value={periodo} onChange={(e) => setPeriodo(e.target.value)} style={{ padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 8, fontSize: 14, background: "#fff" }} />
+            {!esMesActual && <button type="button" className="btn-sm secondary" onClick={() => setPeriodo(todayISO().slice(0, 7))}>Hoy</button>}
+          </div>
         </div>
-      )}
+      </div>
 
-      <button className="btn secondary" onClick={load}>Actualizar</button>
+      {loading && <div className="center"><span className="spinner"></span></div>}
+
+      {!loading && dPersonal && dAtiexa && (
+        <>
+          <div className="card">
+            <h3>Resumen del mes ({tituloMes})</h3>
+            <ResumenBlock label="Personal" color={COLOR_PERSONAL} data={dPersonal} />
+            <Divider />
+            <ResumenBlock label="Atiexa" color={COLOR_ATIEXA} data={dAtiexa} />
+          </div>
+
+          <div className="card">
+            <h3>Gastos por categoría ({tituloMes})</h3>
+            <CategoriasBlock label="Personal" color={COLOR_PERSONAL} data={dPersonal} />
+            <Divider />
+            <CategoriasBlock label="Atiexa" color={COLOR_ATIEXA} data={dAtiexa} />
+          </div>
+
+          <div className="card">
+            <h3>Próximos vencimientos (30 días)</h3>
+            <VencimientosBlock label="Personal" color={COLOR_PERSONAL} data={dPersonal} />
+            <Divider />
+            <VencimientosBlock label="Atiexa" color={COLOR_ATIEXA} data={dAtiexa} />
+          </div>
+
+          <div className="card">
+            <h3>Ahorros e inversiones</h3>
+            <AhorrosBlock label="Personal" color={COLOR_PERSONAL} data={dPersonal} />
+            <Divider />
+            <AhorrosBlock label="Atiexa" color={COLOR_ATIEXA} data={dAtiexa} />
+          </div>
+
+          {((dPersonal.gastosFijosDelMes && dPersonal.gastosFijosDelMes.length > 0) || (dAtiexa.gastosFijosDelMes && dAtiexa.gastosFijosDelMes.length > 0)) && (
+            <div className="card">
+              <h3>Gastos fijos ({tituloMes})</h3>
+              <GastosFijosBlock label="Personal" color={COLOR_PERSONAL} data={dPersonal} onChange={load} mes={periodo} />
+              {dPersonal.gastosFijosDelMes && dPersonal.gastosFijosDelMes.length > 0 && dAtiexa.gastosFijosDelMes && dAtiexa.gastosFijosDelMes.length > 0 && <Divider />}
+              <GastosFijosBlock label="Atiexa" color={COLOR_ATIEXA} data={dAtiexa} onChange={load} mes={periodo} />
+            </div>
+          )}
+
+          <button className="btn secondary" onClick={load}>Actualizar</button>
+        </>
+      )}
     </div>
   );
 }
